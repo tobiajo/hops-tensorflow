@@ -296,11 +296,9 @@ public class Client {
     }
     
     if (!cliParser.hasOption(AM_JAR)) {
-      // throw new IllegalArgumentException("No jar file specified for application master");
-      appMasterJar = ApplicationMaster.class.getProtectionDomain().getCodeSource().getLocation().toString();
-    } else {
-      appMasterJar = cliParser.getOptionValue(AM_JAR);
+      throw new IllegalArgumentException("No jar file specified for application master");
     }
+    appMasterJar = cliParser.getOptionValue(AM_JAR);
     
     if (!cliParser.hasOption(MAIN)) {
       throw new IllegalArgumentException("No main application file specified");

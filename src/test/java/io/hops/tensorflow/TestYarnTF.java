@@ -44,7 +44,7 @@ public class TestYarnTF extends TestCluster {
   @Test(timeout = 90000)
   public void testCreateClusterSpec() throws Exception {
     String[] args = {
-        // "--" + AM_JAR, APPMASTER_JAR,
+        "--" + AM_JAR, APPMASTER_JAR,
         "--" + AM_MEMORY, "256",
         "--" + AM_VCORES, "1",
         "--" + MEMORY, "256",
