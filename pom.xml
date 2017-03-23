@@ -2,20 +2,19 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <parent>
-    <artifactId>hadoop-project</artifactId>
-    <groupId>io.hops</groupId>
-    <version>2.7.3</version>
-    <relativePath>../hadoop-project</relativePath>
-  </parent>
   <modelVersion>4.0.0</modelVersion>
 
+  <groupId>io.hops</groupId>
   <artifactId>hops-tensorflow</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
 
   <properties>
+    <hadoop.version>2.7.3</hadoop.version>
     <guava.version>20.0</guava.version>
     <protobuf.version>3.1.0</protobuf.version>
     <grpc.version>1.1.2</grpc.version>
+    <junit.version>4.11</junit.version>
+    <java.version>1.7</java.version>
   </properties>
 
   <dependencies>
@@ -23,12 +22,12 @@
     <dependency>
       <groupId>io.hops</groupId>
       <artifactId>hadoop-common</artifactId>
-      <scope>provided</scope>
+      <version>${hadoop.version}</version>
     </dependency>
     <dependency>
       <groupId>io.hops</groupId>
       <artifactId>hadoop-yarn-client</artifactId>
-      <scope>provided</scope>
+      <version>${hadoop.version}</version>
     </dependency>
     <!-- grpc -->
     <dependency>
@@ -60,18 +59,21 @@
     <dependency>
       <groupId>io.hops</groupId>
       <artifactId>hadoop-common</artifactId>
+      <version>${hadoop.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.hops</groupId>
       <artifactId>hadoop-yarn-server-tests</artifactId>
+      <version>${hadoop.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
+      <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -85,6 +87,15 @@
       </extension>
     </extensions>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.6.1</version>
+        <configuration>
+          <source>${java.version}</source>
+          <target>${java.version}</target>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.xolstice.maven.plugins</groupId>
         <artifactId>protobuf-maven-plugin</artifactId>
@@ -105,6 +116,43 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>ndb</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>io.hops.metadata</groupId>
+          <artifactId>hops-metadata-dal-impl-ndb</artifactId>
+          <version>1.0</version>
+        </dependency>
+      </dependencies>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.googlecode.mavennatives</groupId>
+            <artifactId>maven-nativedependencies-plugin</artifactId>
+            <version>0.0.7</version>
+            <executions>
+              <execution>
+                <id>unpacknatives</id>
+                <goals>
+                  <goal>copy</goal>
+                </goals>
+                <configuration>
+                  <nativesTargetDir>${session.executionRootDirectory}/target/lib</nativesTargetDir>
+                  <separateDirs>false</separateDirs>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 
 
 </project>
