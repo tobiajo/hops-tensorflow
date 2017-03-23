@@ -650,7 +650,6 @@ public class Client {
     // In this scenario, the jar file for the application master is part of the local resources
     Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
     
-    LOG.info("Copy App Master jar from local filesystem and add to local environment");
     // Copy the application master jar to the filesystem
     // Create a local resource to point to the destination jar path
     addResource(fs, appId, appMasterJar, null, Constants.AM_JAR_PATH, null, localResources, null);
@@ -721,15 +720,18 @@ public class Client {
     String dstPath = dstDir + "/" + dstName;
     Path dst = new Path(baseDir, dstPath);
     
+    LOG.info("Copy from local filesystem: " + src.getName());
     fs.copyFromLocalFile(src, dst);
     FileStatus dstStatus = fs.getFileStatus(dst);
     
     if (distCache != null) {
+      LOG.info("Add to distributed cache: " + src.getName());
       distCache.add(new DistributedCacheList.Entry(
           dstPath, dst.toUri(), dstStatus.getLen(), dstStatus.getModificationTime()));
     }
     
     if (localResources != null) {
+      LOG.info("Add to local environment: " + src.getName());
       LocalResource resource = LocalResource.newInstance(
           ConverterUtils.getYarnUrlFromURI(dst.toUri()),
           LocalResourceType.FILE,
