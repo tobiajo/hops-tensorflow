@@ -132,6 +132,9 @@ public class Client {
   // Main class to invoke application master
   private final String appMasterMainClass;
   
+  int numWorkers;
+  int numPses;
+  
   // Args to be passed to the application
   private String[] arguments = new String[]{};
   // Env variables to be setup for the Python application
@@ -329,8 +332,8 @@ public class Client {
     
     memory = Integer.parseInt(cliParser.getOptionValue(MEMORY, "10"));
     vcores = Integer.parseInt(cliParser.getOptionValue(VCORES, "1"));
-    int numWorkers = Integer.parseInt(cliParser.getOptionValue(WORKERS, "1"));
-    int numPses = Integer.parseInt(cliParser.getOptionValue(PSES, "1"));
+    numWorkers = Integer.parseInt(cliParser.getOptionValue(WORKERS, "1"));
+    numPses = Integer.parseInt(cliParser.getOptionValue(PSES, "1"));
     
     if (memory < 0 || vcores < 0 || numWorkers < 1 || numPses < 1) {
       throw new IllegalArgumentException("Invalid no. of containers or container memory/vcores specified,"
@@ -501,8 +504,8 @@ public class Client {
     
     vargs.add(newArg(ApplicationMasterArguments.MAIN_RELATIVE, mainRelativePath));
     vargs.add(newArg(ARGS, StringUtils.join(arguments, " ")));
-    vargs.add(forwardArgument(WORKERS));
-    vargs.add(forwardArgument(PSES));
+    vargs.add(newArg(WORKERS, Integer.toString(numWorkers)));
+    vargs.add(newArg(PSES, Integer.toString(numPses)));
     
     for (Map.Entry<String, String> entry : environment.entrySet()) {
       vargs.add(newArg(ENV, entry.getKey() + "=" + entry.getValue()));
@@ -564,10 +567,6 @@ public class Client {
   
   private String newArg(String param, String value) {
     return "--" + param + " " + value;
-  }
-  
-  private String forwardArgument(String param) {
-    return newArg(param, cliParser.getOptionValue(param));
   }
   
   private ApplicationSubmissionContext createApplicationSubmissionContext(YarnClientApplication app,
