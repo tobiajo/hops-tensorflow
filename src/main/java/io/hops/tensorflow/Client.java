@@ -136,7 +136,7 @@ public class Client {
   int numPses;
   
   // Args to be passed to the application
-  private String[] arguments = new String[]{};
+  private String[] arguments;
   // Env variables to be setup for the Python application
   private Map<String, String> environment = new HashMap<>();
   // Python application Container priority
@@ -504,7 +504,9 @@ public class Client {
     vargs.add(newArg(PRIORITY, String.valueOf(priority)));
     
     vargs.add(newArg(ApplicationMasterArguments.MAIN_RELATIVE, mainRelativePath));
-    vargs.add(newArg(ARGS, StringUtils.join(arguments, " ")));
+    if (arguments != null) {
+      vargs.add(newArg(ARGS, StringUtils.join(arguments, " ")));
+    }
     vargs.add(newArg(WORKERS, Integer.toString(numWorkers)));
     vargs.add(newArg(PSES, Integer.toString(numPses)));
     
