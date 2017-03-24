@@ -906,6 +906,8 @@ public class ApplicationMaster {
       Vector<CharSequence> vargs = new Vector<>(5);
       
       vargs.add("python " + mainRelative);
+      vargs.add("--job_name=" + jobName);
+      vargs.add("--task_index=" + taskIndex);
       
       // Set args for the Python application if any
       vargs.add(StringUtils.join(arguments, " "));

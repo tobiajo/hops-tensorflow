@@ -52,7 +52,7 @@ public class TestYarnTF extends TestCluster {
         "--" + MAIN, "examples/create_cluster_spec.py",
         "--" + WORKERS, "4",
         "--" + PSES, "1",
-        "--" + ARGS, "hello world"
+        "--" + ARGS, "here comes more args"
     };
     
     LOG.info("Initializing yarnTF Client");
