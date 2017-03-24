@@ -396,6 +396,7 @@ public class Client {
     YarnClientApplication app = yarnClient.createApplication();
     GetNewApplicationResponse appResponse = app.getNewApplicationResponse();
     ApplicationId appId = appResponse.getApplicationId();
+    LOG.info("Received application id: " + appId);
     
     verifyClusterResources(appResponse);
     
