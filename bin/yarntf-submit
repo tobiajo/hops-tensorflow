@@ -9,4 +9,4 @@ hops_tf_root=$(dirname "$script_dir")
 jar="$hops_tf_root"/target/hops-tensorflow-0.0.1-SNAPSHOT.jar
 client=io.hops.tensorflow.Client
 
-yarn jar $jar $client --am_jar $jar "$@"
+$HADOOP_HOME/bin/yarn jar $jar $client --am_jar $jar "$@"
