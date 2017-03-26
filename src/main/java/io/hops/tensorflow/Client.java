@@ -36,7 +36,6 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -117,7 +116,7 @@ public class Client {
   private Configuration conf;
   private YarnClient yarnClient;
   // Application master specific info to register a new Application with RM/ASM
-  private String appName;
+  private String name;
   // App master priority
   private int amPriority;
   // Queue for App master
@@ -283,7 +282,7 @@ public class Client {
       keepContainers = true;
     }
     
-    appName = cliParser.getOptionValue(NAME, "yarnTF");
+    name = cliParser.getOptionValue(NAME);
     amPriority = Integer.parseInt(cliParser.getOptionValue(AM_PRIORITY, "0"));
     amQueue = cliParser.getOptionValue(QUEUE, "default");
     amMemory = Integer.parseInt(cliParser.getOptionValue(AM_MEMORY, "10"));
@@ -574,11 +573,17 @@ public class Client {
   
   private ApplicationSubmissionContext createApplicationSubmissionContext(YarnClientApplication app,
       ContainerLaunchContext containerContext) {
-    // set the application name
     ApplicationSubmissionContext appContext = app.getApplicationSubmissionContext();
     
+    // set the application name
+    if (name == null) {
+      appContext.setApplicationName(mainRelativePath);
+    } else {
+      appContext.setApplicationName(name);
+    }
+    appContext.setApplicationType("YARNTF");
+    
     appContext.setKeepContainersAcrossApplicationAttempts(keepContainers);
-    appContext.setApplicationName(appName);
     
     if (attemptFailuresValidityInterval >= 0) {
       appContext.setAttemptFailuresValidityInterval(attemptFailuresValidityInterval);

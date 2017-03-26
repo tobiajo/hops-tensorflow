@@ -22,7 +22,7 @@ import org.apache.commons.cli.Options;
 
 public class ClientArguments extends CommonArguments {
   
-  public static final String NAME = "appname";
+  public static final String NAME = "name";
   public static final String MAIN = "main";
   public static final String FILES = "files";
   
