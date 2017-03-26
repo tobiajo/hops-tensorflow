@@ -309,12 +309,12 @@ public class ApplicationMaster {
     if (cliParser.hasOption(DEBUG)) {
       dumpOutDebugInfo();
     }
-  
+    
     if (!cliParser.hasOption(MAIN_RELATIVE)) {
       throw new IllegalArgumentException("No main application file specified");
     }
     mainRelative = cliParser.getOptionValue(MAIN_RELATIVE);
-  
+    
     if (cliParser.hasOption(ARGS)) {
       arguments = cliParser.getOptionValues(ARGS);
     }
@@ -905,7 +905,13 @@ public class ApplicationMaster {
       // Set the necessary command to execute on the allocated container
       Vector<CharSequence> vargs = new Vector<>(5);
       
+      // https://www.tensorflow.org/deploy/hadoop
+      vargs.add("LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/jre/lib/amd64/server");
+      vargs.add("CLASSPATH=$($HADOOP_HDFS_HOME/bin/hadoop classpath --glob)");
+      
       vargs.add("python " + mainRelative);
+      vargs.add("--workers=" + numWorkers);
+      vargs.add("--pses=" + numPses);
       vargs.add("--job_name=" + jobName);
       vargs.add("--task_index=" + taskIndex);
       
