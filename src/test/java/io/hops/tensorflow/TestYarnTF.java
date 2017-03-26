@@ -21,11 +21,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
-import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.junit.Assert;
 import org.junit.Test;
-
-import java.io.IOException;
 
 import static io.hops.tensorflow.ClientArguments.AM_JAR;
 import static io.hops.tensorflow.ClientArguments.AM_MEMORY;
@@ -43,16 +40,18 @@ public class TestYarnTF extends TestCluster {
   
   @Test(timeout = 90000)
   public void testCreateClusterSpec() throws Exception {
+    ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+    String mainPath = classLoader.getResource("create_cluster_spec.py").getPath();
     String[] args = {
         "--" + AM_JAR, APPMASTER_JAR,
         "--" + AM_MEMORY, "256",
         "--" + AM_VCORES, "1",
         "--" + MEMORY, "256",
         "--" + VCORES, "1",
-        "--" + MAIN, "examples/create_cluster_spec.py",
+        "--" + MAIN, mainPath,
         "--" + WORKERS, "4",
         "--" + PSES, "1",
-        "--" + ARGS, "here comes more args"
+        "--" + ARGS, "--images mnist/tfr/train --format tfr --mode train --model mnist_model"
     };
     
     LOG.info("Initializing yarnTF Client");
@@ -62,28 +61,12 @@ public class TestYarnTF extends TestCluster {
     LOG.info("Running yarnTF Client");
     final ApplicationId appId = client.submitApplication();
     
-    new Thread(new Runnable() {
-      @Override
-      public void run() {
-        try {
-          Thread.sleep(30000);
-          client.forceKillApplication(appId);
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-        } catch (YarnException e) {
-          e.printStackTrace();
-        } catch (IOException e) {
-          e.printStackTrace();
-        }
-        LOG.info("Kill application");
-      }
-    }).start();
-    
     boolean result = client.monitorApplication(appId);
     LOG.info("Client run completed. Result=" + result);
     
-    TestUtils.dumpAllRemoteContainersLogs(yarnCluster, appId);
-    Thread.sleep(5000);
-    TestUtils.dumpAllAggregatedContainersLogs(yarnCluster, appId);
+    Assert.assertEquals(5, TestUtils.verifyContainerLog(yarnCluster, 5, null, true, "Number of arguments: 13"));
+    Assert.assertTrue(TestUtils.dumpAllRemoteContainersLogs(yarnCluster, appId));
+    // Thread.sleep(5000);
+    // TestUtils.dumpAllAggregatedContainersLogs(yarnCluster, appId);
   }
 }
