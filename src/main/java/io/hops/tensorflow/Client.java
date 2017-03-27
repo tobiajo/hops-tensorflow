@@ -18,7 +18,6 @@
 
 package io.hops.tensorflow;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
@@ -29,8 +28,6 @@ import org.apache.commons.lang.SerializationUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -106,8 +103,6 @@ import static io.hops.tensorflow.ClientArguments.VIEW_ACLS;
 import static io.hops.tensorflow.ClientArguments.WORKERS;
 import static io.hops.tensorflow.ClientArguments.createOptions;
 
-@InterfaceAudience.Public
-@InterfaceStability.Unstable
 public class Client {
   
   private static final Log LOG = LogFactory.getLog(Client.class);
@@ -131,8 +126,8 @@ public class Client {
   // Main class to invoke application master
   private final String appMasterMainClass;
   
-  int numWorkers;
-  int numPses;
+  private int numWorkers;
+  private int numPses;
   
   // Args to be passed to the application
   private String[] arguments;
@@ -162,7 +157,7 @@ public class Client {
   private long attemptFailuresValidityInterval;
   
   // Debug flag
-  boolean debugFlag;
+  private boolean debugFlag;
   
   // Timeline domain ID
   private String domainId;
@@ -379,8 +374,6 @@ public class Client {
     return monitorApplication(submitApplication());
   }
   
-  @VisibleForTesting
-  @InterfaceAudience.Private
   public ApplicationId submitApplication() throws IOException, YarnException {
     LOG.info("Running Client");
     yarnClient.start();
@@ -447,6 +440,34 @@ public class Client {
             + ", queueName=" + aclInfo.getQueueName()
             + ", userAcl=" + userAcl.name());
       }
+    }
+  }
+  
+  private void prepareTimelineDomain() {
+    TimelineClient timelineClient;
+    if (conf.getBoolean(YarnConfiguration.TIMELINE_SERVICE_ENABLED,
+        YarnConfiguration.DEFAULT_TIMELINE_SERVICE_ENABLED)) {
+      timelineClient = TimelineClient.createTimelineClient();
+      timelineClient.init(conf);
+      timelineClient.start();
+    } else {
+      LOG.warn("Cannot put the domain " + domainId +
+          " because the timeline service is not enabled");
+      return;
+    }
+    try {
+      //TODO: we need to check and combine the existing timeline domain ACLs,
+      //but let's do it once we have client java library to query domains.
+      TimelineDomain domain = new TimelineDomain();
+      domain.setId(domainId);
+      domain.setReaders(viewACLs != null && viewACLs.length() > 0 ? viewACLs : " ");
+      domain.setWriters(modifyACLs != null && modifyACLs.length() > 0 ? modifyACLs : " ");
+      timelineClient.putDomain(domain);
+      LOG.info("Put the timeline domain: " + TimelineUtils.dumpTimelineRecordtoJSON(domain));
+    } catch (Exception e) {
+      LOG.error("Error when putting the timeline domain", e);
+    } finally {
+      timelineClient.stop();
     }
   }
   
@@ -763,8 +784,6 @@ public class Client {
    * @throws YarnException
    * @throws IOException
    */
-  @VisibleForTesting
-  @InterfaceAudience.Private
   public boolean monitorApplication(ApplicationId appId)
       throws YarnException, IOException {
     
@@ -830,8 +849,6 @@ public class Client {
    * @throws YarnException
    * @throws IOException
    */
-  @VisibleForTesting
-  @InterfaceAudience.Private
   public void forceKillApplication(ApplicationId appId)
       throws YarnException, IOException {
     // TODO clarify whether multiple jobs with the same app id can be submitted and be running at 
@@ -841,33 +858,5 @@ public class Client {
     // Response can be ignored as it is non-null on success or 
     // throws an exception in case of failures
     yarnClient.killApplication(appId);
-  }
-  
-  private void prepareTimelineDomain() {
-    TimelineClient timelineClient;
-    if (conf.getBoolean(YarnConfiguration.TIMELINE_SERVICE_ENABLED,
-        YarnConfiguration.DEFAULT_TIMELINE_SERVICE_ENABLED)) {
-      timelineClient = TimelineClient.createTimelineClient();
-      timelineClient.init(conf);
-      timelineClient.start();
-    } else {
-      LOG.warn("Cannot put the domain " + domainId +
-          " because the timeline service is not enabled");
-      return;
-    }
-    try {
-      //TODO: we need to check and combine the existing timeline domain ACLs,
-      //but let's do it once we have client java library to query domains.
-      TimelineDomain domain = new TimelineDomain();
-      domain.setId(domainId);
-      domain.setReaders(viewACLs != null && viewACLs.length() > 0 ? viewACLs : " ");
-      domain.setWriters(modifyACLs != null && modifyACLs.length() > 0 ? modifyACLs : " ");
-      timelineClient.putDomain(domain);
-      LOG.info("Put the timeline domain: " + TimelineUtils.dumpTimelineRecordtoJSON(domain));
-    } catch (Exception e) {
-      LOG.error("Error when putting the timeline domain", e);
-    } finally {
-      timelineClient.stop();
-    }
   }
 }

@@ -18,7 +18,6 @@
 
 package io.hops.tensorflow;
 
-import com.google.common.annotations.VisibleForTesting;
 import io.hops.tensorflow.applicationmaster.NMWrapper;
 import io.hops.tensorflow.applicationmaster.RMWrapper;
 import io.hops.tensorflow.applicationmaster.TimelineHandler;
@@ -30,9 +29,6 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceAudience.Private;
-import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.io.IOUtils;
@@ -93,14 +89,10 @@ import static io.hops.tensorflow.ApplicationMasterArguments.createOptions;
 import static io.hops.tensorflow.CommonArguments.ARGS;
 import static io.hops.tensorflow.Constants.LOG4J_PATH;
 
-@InterfaceAudience.Public
-@InterfaceStability.Unstable
 public class ApplicationMaster {
   
   private static final Log LOG = LogFactory.getLog(ApplicationMaster.class);
   
-  @VisibleForTesting
-  @Private
   public enum YarnTFEvent {
     YARNTF_APP_ATTEMPT_START,
     YARNTF_APP_ATTEMPT_END,
@@ -108,8 +100,6 @@ public class ApplicationMaster {
     YARNTF_CONTAINER_END
   }
   
-  @VisibleForTesting
-  @Private
   public enum YarnTFEntity {
     YARNTF_APP_ATTEMPT,
     YARNTF_CONTAINER
@@ -122,15 +112,13 @@ public class ApplicationMaster {
   private RMWrapper rmWrapper;
   
   // In both secure and non-secure modes, this points to the job-submitter.
-  @VisibleForTesting
-  UserGroupInformation appSubmitterUgi;
+  private UserGroupInformation appSubmitterUgi;
   
   // Handle to communicate with the Node Manager
   private NMWrapper nmWrapper;
   
   // Application Attempt Id ( combination of attemptId and fail count )
-  @VisibleForTesting
-  protected ApplicationAttemptId appAttemptID;
+  private ApplicationAttemptId appAttemptID;
   
   // TODO
   // For status update for clients - yet to be implemented
@@ -146,8 +134,7 @@ public class ApplicationMaster {
   
   // App Master configuration
   // No. of containers to run yarnTF on
-  @VisibleForTesting
-  protected int numTotalContainers;
+  private int numTotalContainers;
   // Memory to request for the container on which the application will run
   private int containerMemory;
   // VirtualCores to request for the container on which the application will run
@@ -159,15 +146,13 @@ public class ApplicationMaster {
   private AtomicInteger numCompletedContainers = new AtomicInteger();
   // Allocated container count so that we know how many containers has the RM
   // allocated to us
-  @VisibleForTesting
-  protected AtomicInteger numAllocatedContainers = new AtomicInteger();
+  private AtomicInteger numAllocatedContainers = new AtomicInteger();
   // Count of failed containers
   private AtomicInteger numFailedContainers = new AtomicInteger();
   // Count of containers already requested from the RM
   // Needed as once requested, we should not request for containers again.
   // Only request for more if the original requirement changes.
-  @VisibleForTesting
-  protected AtomicInteger numRequestedContainers = new AtomicInteger();
+  private AtomicInteger numRequestedContainers = new AtomicInteger();
   
   private String[] arguments = new String[]{};
   
@@ -185,7 +170,7 @@ public class ApplicationMaster {
   private List<Thread> launchThreads = new ArrayList<>();
   
   // Timeline Client wrapper
-  TimelineHandler timelineHandler;
+  private TimelineHandler timelineHandler;
   
   // yarnTF stuff
   private CommandLine cliParser;
@@ -346,7 +331,7 @@ public class ApplicationMaster {
     
     environment.put("WORKERS", Integer.toString(numWorkers));
     environment.put("PSES", Integer.toString(numPses));
-  
+    
     DistributedCacheList distCacheList = null;
     FileInputStream fin = null;
     ObjectInputStream ois = null;
@@ -570,7 +555,6 @@ public class ApplicationMaster {
    * Dump out contents of $CWD and the environment to stdout for debugging
    */
   private void dumpOutDebugInfo() {
-    
     LOG.info("Dump debug output");
     Map<String, String> envs = System.getenv();
     for (Map.Entry<String, String> env : envs.entrySet()) {
@@ -606,8 +590,7 @@ public class ApplicationMaster {
     new HelpFormatter().printHelp("ApplicationMaster", opts);
   }
   
-  @VisibleForTesting
-  protected boolean finish() {
+  private boolean finish() {
     // wait for completion.
     while (!done && (numCompletedContainers.get() != numTotalContainers)) {
       try {

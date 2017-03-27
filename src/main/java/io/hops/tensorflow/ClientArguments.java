@@ -17,7 +17,6 @@
  */
 package io.hops.tensorflow;
 
-import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 
 public class ClientArguments extends CommonArguments {

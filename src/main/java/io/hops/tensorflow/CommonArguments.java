@@ -29,7 +29,7 @@ public class CommonArguments {
   
   public static final String MEMORY = "memory";
   public static final String VCORES = "vcores";
-  public static final String PRIORITY = "py_app_priority";
+  public static final String PRIORITY = "priority";
   
   public static final String DEBUG = "debug";
   public static final String HELP = "help";
