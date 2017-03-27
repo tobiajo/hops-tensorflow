@@ -19,6 +19,7 @@
 package io.hops.tensorflow;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.hops.tensorflow.applicationmaster.NMCallbackHandler;
 import io.hops.tensorflow.applicationmaster.TimelineHandler;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
@@ -83,7 +84,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.hops.tensorflow.ApplicationMasterArguments.APP_ATTEMPT_ID;
@@ -748,75 +748,6 @@ public class ApplicationMaster {
     }
   }
   
-  @VisibleForTesting
-  static class NMCallbackHandler
-      implements NMClientAsync.CallbackHandler {
-    
-    private ConcurrentMap<ContainerId, Container> containers =
-        new ConcurrentHashMap<ContainerId, Container>();
-    private final ApplicationMaster applicationMaster;
-    
-    public NMCallbackHandler(ApplicationMaster applicationMaster) {
-      this.applicationMaster = applicationMaster;
-    }
-    
-    public void addContainer(ContainerId containerId, Container container) {
-      containers.putIfAbsent(containerId, container);
-    }
-    
-    @Override
-    public void onContainerStopped(ContainerId containerId) {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Succeeded to stop Container " + containerId);
-      }
-      containers.remove(containerId);
-    }
-    
-    @Override
-    public void onContainerStatusReceived(ContainerId containerId,
-        ContainerStatus containerStatus) {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Container Status: id=" + containerId + ", status=" +
-            containerStatus);
-      }
-    }
-    
-    @Override
-    public void onContainerStarted(ContainerId containerId,
-        Map<String, ByteBuffer> allServiceResponse) {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Succeeded to start Container " + containerId);
-      }
-      Container container = containers.get(containerId);
-      if (container != null) {
-        applicationMaster.nmClientAsync.getContainerStatusAsync(containerId, container.getNodeId());
-      }
-      if (applicationMaster.timelineHandler.isClientNotNull()) {
-        applicationMaster.timelineHandler.publishContainerStartEvent(container);
-      }
-    }
-    
-    @Override
-    public void onStartContainerError(ContainerId containerId, Throwable t) {
-      LOG.error("Failed to start Container " + containerId);
-      containers.remove(containerId);
-      applicationMaster.numCompletedContainers.incrementAndGet();
-      applicationMaster.numFailedContainers.incrementAndGet();
-    }
-    
-    @Override
-    public void onGetContainerStatusError(
-        ContainerId containerId, Throwable t) {
-      LOG.error("Failed to query the status of Container " + containerId);
-    }
-    
-    @Override
-    public void onStopContainerError(ContainerId containerId, Throwable t) {
-      LOG.error("Failed to stop Container " + containerId);
-      containers.remove(containerId);
-    }
-  }
-  
   /**
    * Thread to connect to the {@link ContainerManagementProtocol} and launch the container
    * that will execute the Python application
@@ -938,5 +869,22 @@ public class ApplicationMaster {
   
   private boolean fileExist(String filePath) {
     return new File(filePath).exists();
+  }
+  
+  // Getters
+  public NMClientAsync getNmClientAsync() {
+    return nmClientAsync;
+  }
+  
+  public TimelineHandler getTimelineHandler() {
+    return timelineHandler;
+  }
+  
+  public AtomicInteger getNumCompletedContainers() {
+    return numCompletedContainers;
+  }
+  
+  public AtomicInteger getNumFailedContainers() {
+    return numFailedContainers;
   }
 }
