@@ -19,6 +19,7 @@
 package io.hops.tensorflow;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.hops.tensorflow.applicationmaster.TimelineHandler;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
@@ -57,11 +58,7 @@ import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
-import org.apache.hadoop.yarn.api.records.timeline.TimelineEntity;
-import org.apache.hadoop.yarn.api.records.timeline.TimelineEvent;
-import org.apache.hadoop.yarn.api.records.timeline.TimelinePutResponse;
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
-import org.apache.hadoop.yarn.client.api.TimelineClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.impl.NMClientAsyncImpl;
@@ -72,16 +69,13 @@ import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.log4j.LogManager;
 
 import java.io.BufferedReader;
-import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.StringReader;
-import java.lang.reflect.UndeclaredThrowableException;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
-import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -191,7 +185,7 @@ public class ApplicationMaster {
   private Map<String, String> environment = new HashMap<>();
   
   // Timeline domain ID
-  private String domainId = null;
+  private String domainId;
   
   private volatile boolean done;
   
@@ -200,9 +194,8 @@ public class ApplicationMaster {
   // Launch threads
   private List<Thread> launchThreads = new ArrayList<>();
   
-  // Timeline Client
-  @VisibleForTesting
-  TimelineClient timelineClient;
+  // Timeline Client wrapper
+  TimelineHandler timelineHandler;
   
   // yarnTF stuff
   private CommandLine cliParser;
@@ -481,10 +474,10 @@ public class ApplicationMaster {
     nmClientAsync.init(conf);
     nmClientAsync.start();
     
-    startTimelineClient(conf);
-    if (timelineClient != null) {
-      publishApplicationAttemptEvent(timelineClient, appAttemptID.toString(),
-          YarnTFEvent.YARNTF_APP_ATTEMPT_START, domainId, appSubmitterUgi);
+    timelineHandler = new TimelineHandler(appAttemptID.toString(), domainId, appSubmitterUgi);
+    timelineHandler.startClient(conf);
+    if (timelineHandler.isClientNotNull()) {
+      timelineHandler.publishApplicationAttemptEvent(YarnTFEvent.YARNTF_APP_ATTEMPT_START);
     }
     
     // Setup local RPC Server to accept status requests directly from clients
@@ -542,31 +535,6 @@ public class ApplicationMaster {
   }
   
   @VisibleForTesting
-  void startTimelineClient(final Configuration conf)
-      throws YarnException, IOException, InterruptedException {
-    try {
-      appSubmitterUgi.doAs(new PrivilegedExceptionAction<Void>() {
-        @Override
-        public Void run() throws Exception {
-          if (conf.getBoolean(YarnConfiguration.TIMELINE_SERVICE_ENABLED,
-              YarnConfiguration.DEFAULT_TIMELINE_SERVICE_ENABLED)) {
-            // Creating the Timeline Client
-            timelineClient = TimelineClient.createTimelineClient();
-            timelineClient.init(conf);
-            timelineClient.start();
-          } else {
-            timelineClient = null;
-            LOG.warn("Timeline service is not enabled");
-          }
-          return null;
-        }
-      });
-    } catch (UndeclaredThrowableException e) {
-      throw new YarnException(e.getCause());
-    }
-  }
-  
-  @VisibleForTesting
   NMCallbackHandler createNMCallbackHandler() {
     return new NMCallbackHandler(this);
   }
@@ -582,9 +550,8 @@ public class ApplicationMaster {
       }
     }
     
-    if (timelineClient != null) {
-      publishApplicationAttemptEvent(timelineClient, appAttemptID.toString(),
-          YarnTFEvent.YARNTF_APP_ATTEMPT_END, domainId, appSubmitterUgi);
+    if (timelineHandler.isClientNotNull()) {
+      timelineHandler.publishApplicationAttemptEvent(YarnTFEvent.YARNTF_APP_ATTEMPT_END);
     }
     
     // Join all launched threads
@@ -632,8 +599,8 @@ public class ApplicationMaster {
     amRMClient.stop();
     
     // Stop Timeline Client
-    if (timelineClient != null) {
-      timelineClient.stop();
+    if (timelineHandler.isClientNotNull()) {
+      timelineHandler.stopClient();
     }
     
     return success;
@@ -682,9 +649,8 @@ public class ApplicationMaster {
           LOG.info("Container completed successfully." + ", containerId="
               + containerStatus.getContainerId());
         }
-        if (timelineClient != null) {
-          publishContainerEndEvent(
-              timelineClient, containerStatus, domainId, appSubmitterUgi);
+        if (timelineHandler.isClientNotNull()) {
+          timelineHandler.publishContainerEndEvent(containerStatus);
         }
       }
       
@@ -825,10 +791,8 @@ public class ApplicationMaster {
       if (container != null) {
         applicationMaster.nmClientAsync.getContainerStatusAsync(containerId, container.getNodeId());
       }
-      if (applicationMaster.timelineClient != null) {
-        ApplicationMaster.publishContainerStartEvent(
-            applicationMaster.timelineClient, container,
-            applicationMaster.domainId, applicationMaster.appSubmitterUgi);
+      if (applicationMaster.timelineHandler.isClientNotNull()) {
+        applicationMaster.timelineHandler.publishContainerStartEvent(container);
       }
     }
     
@@ -974,88 +938,5 @@ public class ApplicationMaster {
   
   private boolean fileExist(String filePath) {
     return new File(filePath).exists();
-  }
-  
-  private String readContent(String filePath) throws IOException {
-    DataInputStream ds = null;
-    try {
-      ds = new DataInputStream(new FileInputStream(filePath));
-      return ds.readUTF();
-    } finally {
-      org.apache.commons.io.IOUtils.closeQuietly(ds);
-    }
-  }
-  
-  private static void publishContainerStartEvent(
-      final TimelineClient timelineClient, Container container, String domainId,
-      UserGroupInformation ugi) {
-    final TimelineEntity entity = new TimelineEntity();
-    entity.setEntityId(container.getId().toString());
-    entity.setEntityType(YarnTFEntity.YARNTF_CONTAINER.toString());
-    entity.setDomainId(domainId);
-    entity.addPrimaryFilter("user", ugi.getShortUserName());
-    TimelineEvent event = new TimelineEvent();
-    event.setTimestamp(System.currentTimeMillis());
-    event.setEventType(YarnTFEvent.YARNTF_CONTAINER_START.toString());
-    event.addEventInfo("Node", container.getNodeId().toString());
-    event.addEventInfo("Resources", container.getResource().toString());
-    entity.addEvent(event);
-    
-    try {
-      ugi.doAs(new PrivilegedExceptionAction<TimelinePutResponse>() {
-        @Override
-        public TimelinePutResponse run() throws Exception {
-          return timelineClient.putEntities(entity);
-        }
-      });
-    } catch (Exception e) {
-      LOG.error("Container start event could not be published for "
-              + container.getId().toString(),
-          e instanceof UndeclaredThrowableException ? e.getCause() : e);
-    }
-  }
-  
-  private static void publishContainerEndEvent(
-      final TimelineClient timelineClient, ContainerStatus container,
-      String domainId, UserGroupInformation ugi) {
-    final TimelineEntity entity = new TimelineEntity();
-    entity.setEntityId(container.getContainerId().toString());
-    entity.setEntityType(YarnTFEntity.YARNTF_CONTAINER.toString());
-    entity.setDomainId(domainId);
-    entity.addPrimaryFilter("user", ugi.getShortUserName());
-    TimelineEvent event = new TimelineEvent();
-    event.setTimestamp(System.currentTimeMillis());
-    event.setEventType(YarnTFEvent.YARNTF_CONTAINER_END.toString());
-    event.addEventInfo("State", container.getState().name());
-    event.addEventInfo("Exit Status", container.getExitStatus());
-    entity.addEvent(event);
-    try {
-      timelineClient.putEntities(entity);
-    } catch (YarnException | IOException e) {
-      LOG.error("Container end event could not be published for "
-          + container.getContainerId().toString(), e);
-    }
-  }
-  
-  private static void publishApplicationAttemptEvent(
-      final TimelineClient timelineClient, String appAttemptId,
-      YarnTFEvent appEvent, String domainId, UserGroupInformation ugi) {
-    final TimelineEntity entity = new TimelineEntity();
-    entity.setEntityId(appAttemptId);
-    entity.setEntityType(YarnTFEntity.YARNTF_APP_ATTEMPT.toString());
-    entity.setDomainId(domainId);
-    entity.addPrimaryFilter("user", ugi.getShortUserName());
-    TimelineEvent event = new TimelineEvent();
-    event.setEventType(appEvent.toString());
-    event.setTimestamp(System.currentTimeMillis());
-    entity.addEvent(event);
-    try {
-      timelineClient.putEntities(entity);
-    } catch (YarnException | IOException e) {
-      LOG.error("App Attempt "
-          + (appEvent.equals(YarnTFEvent.YARNTF_APP_ATTEMPT_START) ? "start" : "end")
-          + " event could not be published for "
-          + appAttemptId.toString(), e);
-    }
   }
 }
