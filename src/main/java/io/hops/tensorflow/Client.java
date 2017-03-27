@@ -199,7 +199,6 @@ public class Client {
         }
       } catch (IllegalArgumentException e) {
         System.err.println(e.getLocalizedMessage());
-        client.printUsage();
         System.exit(-1);
       }
       result = client.run();
@@ -255,6 +254,7 @@ public class Client {
     cliParser = new GnuParser().parse(opts, args);
     
     if (args.length == 0) {
+      printUsage();
       throw new IllegalArgumentException("No args specified for client to initialize");
     }
     
