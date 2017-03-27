@@ -19,7 +19,7 @@
 package io.hops.tensorflow;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.hops.tensorflow.applicationmaster.NMCallbackHandler;
+import io.hops.tensorflow.applicationmaster.NMWrapper;
 import io.hops.tensorflow.applicationmaster.TimelineHandler;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
@@ -61,8 +61,6 @@ import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
-import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
-import org.apache.hadoop.yarn.client.api.async.impl.NMClientAsyncImpl;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
@@ -134,9 +132,7 @@ public class ApplicationMaster {
   UserGroupInformation appSubmitterUgi;
   
   // Handle to communicate with the Node Manager
-  private NMClientAsync nmClientAsync;
-  // Listen to process the response from the Node Manager
-  private NMCallbackHandler containerListener;
+  private NMWrapper nmWrapper;
   
   // Application Attempt Id ( combination of attemptId and fail count )
   @VisibleForTesting
@@ -469,10 +465,9 @@ public class ApplicationMaster {
     amRMClient.init(conf);
     amRMClient.start();
     
-    containerListener = createNMCallbackHandler();
-    nmClientAsync = new NMClientAsyncImpl(containerListener);
-    nmClientAsync.init(conf);
-    nmClientAsync.start();
+    nmWrapper = new NMWrapper(this);
+    nmWrapper.getClient().init(conf);
+    nmWrapper.getClient().start();
     
     timelineHandler = new TimelineHandler(appAttemptID.toString(), domainId, appSubmitterUgi);
     timelineHandler.startClient(conf);
@@ -535,8 +530,8 @@ public class ApplicationMaster {
   }
   
   @VisibleForTesting
-  NMCallbackHandler createNMCallbackHandler() {
-    return new NMCallbackHandler(this);
+  NMWrapper createNMCallbackHandler() {
+    return new NMWrapper(this);
   }
   
   @VisibleForTesting
@@ -568,7 +563,7 @@ public class ApplicationMaster {
     
     // When the application completes, it should stop all running containers
     LOG.info("Application completed. Stopping running containers");
-    nmClientAsync.stop();
+    nmWrapper.getClient().stop();
     
     // When the application completes, it should send a finish application
     // signal to the RM
@@ -713,7 +708,7 @@ public class ApplicationMaster {
         }
         
         LaunchContainerRunnable runnableLaunchContainer =
-            new LaunchContainerRunnable(allocatedContainer, containerListener, jobName, taskIndex);
+            new LaunchContainerRunnable(allocatedContainer, jobName, taskIndex);
         Thread launchThread = new Thread(runnableLaunchContainer);
         
         // launch and start the container on a separate thread to keep
@@ -757,21 +752,12 @@ public class ApplicationMaster {
     // Allocated container
     Container container;
     
-    NMCallbackHandler containerListener;
-    
     String jobName;
     int taskIndex;
     
-    /**
-     * @param lcontainer
-     *     Allocated container
-     * @param containerListener
-     *     Callback handler of the container
-     */
     public LaunchContainerRunnable(
-        Container lcontainer, NMCallbackHandler containerListener, String jobName, int taskIndex) {
+        Container lcontainer, String jobName, int taskIndex) {
       this.container = lcontainer;
-      this.containerListener = containerListener;
       this.jobName = jobName;
       this.taskIndex = taskIndex;
     }
@@ -839,8 +825,8 @@ public class ApplicationMaster {
       pyEnvCopy.put("TASK_INDEX", Integer.toString(taskIndex));
       ContainerLaunchContext ctx = ContainerLaunchContext.newInstance(
           localResources, pyEnvCopy, commands, null, allTokens.duplicate(), null);
-      containerListener.addContainer(container.getId(), container);
-      nmClientAsync.startContainerAsync(container, ctx);
+      nmWrapper.addContainer(container.getId(), container);
+      nmWrapper.getClient().startContainerAsync(container, ctx);
     }
   }
   
@@ -872,10 +858,6 @@ public class ApplicationMaster {
   }
   
   // Getters
-  public NMClientAsync getNmClientAsync() {
-    return nmClientAsync;
-  }
-  
   public TimelineHandler getTimelineHandler() {
     return timelineHandler;
   }
