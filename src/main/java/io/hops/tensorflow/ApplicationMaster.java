@@ -221,36 +221,6 @@ public class ApplicationMaster {
     }
   }
   
-  /**
-   * Dump out contents of $CWD and the environment to stdout for debugging
-   */
-  private void dumpOutDebugInfo() {
-    
-    LOG.info("Dump debug output");
-    Map<String, String> envs = System.getenv();
-    for (Map.Entry<String, String> env : envs.entrySet()) {
-      LOG.info("System env: key=" + env.getKey() + ", val=" + env.getValue());
-      System.out.println("System env: key=" + env.getKey() + ", val="
-          + env.getValue());
-    }
-    
-    BufferedReader buf = null;
-    try {
-      String lines = Shell.WINDOWS ? Shell.execCommand("cmd", "/c", "dir") :
-          Shell.execCommand("ls", "-al");
-      buf = new BufferedReader(new StringReader(lines));
-      String line = "";
-      while ((line = buf.readLine()) != null) {
-        LOG.info("System CWD content: " + line);
-        System.out.println("System CWD content: " + line);
-      }
-    } catch (IOException e) {
-      e.printStackTrace();
-    } finally {
-      IOUtils.cleanup(LOG, buf);
-    }
-  }
-  
   public ApplicationMaster() {
     // Set up the configuration
     conf = new YarnConfiguration();
@@ -396,16 +366,6 @@ public class ApplicationMaster {
   }
   
   /**
-   * Helper function to print usage
-   *
-   * @param opts
-   *     Parsed command line options
-   */
-  private void printUsage(Options opts) {
-    new HelpFormatter().printHelp("ApplicationMaster", opts);
-  }
-  
-  /**
    * Main run function for the application master
    *
    * @throws YarnException
@@ -521,11 +481,123 @@ public class ApplicationMaster {
     numRequestedContainers.set(numTotalContainers);
   }
   
+  public void setDone() {
+    done = true;
+  }
+  
+  public void addLaunchThread(Thread lt) {
+    launchThreads.add(lt);
+  }
+  
+  public LaunchContainerRunnable createLaunchContainerRunnable(Container lcontainer, String jobName, int taskIndex) {
+    return new LaunchContainerRunnable(lcontainer, jobName, taskIndex);
+  }
+  
+  /**
+   * Setup the request that will be sent to the RM for the container ask.
+   *
+   * @return the setup ResourceRequest to be sent to RM
+   */
+  public ContainerRequest setupContainerAskForRM() {
+    // setup requirements for hosts
+    // using * as any host will do for the yarnTF app
+    // set the priority for the request
+    // TODO - what is the range for priority? how to decide?
+    Priority pri = Priority.newInstance(requestPriority);
+    
+    // Set up resource type requirements
+    // For now, memory and CPU are supported so we set memory and cpu requirements
+    Resource capability = Resource.newInstance(containerMemory,
+        containerVirtualCores);
+    
+    ContainerRequest request = new ContainerRequest(capability, null, null,
+        pri);
+    LOG.info("Requested container ask: " + request.toString());
+    return request;
+  }
+  
+  // Getters for NM and RM wrappers
+  
+  public TimelineHandler getTimelineHandler() {
+    return timelineHandler;
+  }
+  
+  public AtomicInteger getNumCompletedContainers() {
+    return numCompletedContainers;
+  }
+  
+  public AtomicInteger getNumFailedContainers() {
+    return numFailedContainers;
+  }
+  
+  public ApplicationAttemptId getAppAttemptID() {
+    return appAttemptID;
+  }
+  
+  public AtomicInteger getNumAllocatedContainers() {
+    return numAllocatedContainers;
+  }
+  
+  public AtomicInteger getNumRequestedContainers() {
+    return numRequestedContainers;
+  }
+  
+  public int getNumTotalContainers() {
+    return numTotalContainers;
+  }
+  
+  public int getNumWorkers() {
+    return numWorkers;
+  }
+  
+  public int getNumPses() {
+    return numPses;
+  }
+  
+  /**
+   * Dump out contents of $CWD and the environment to stdout for debugging
+   */
+  private void dumpOutDebugInfo() {
+    
+    LOG.info("Dump debug output");
+    Map<String, String> envs = System.getenv();
+    for (Map.Entry<String, String> env : envs.entrySet()) {
+      LOG.info("System env: key=" + env.getKey() + ", val=" + env.getValue());
+      System.out.println("System env: key=" + env.getKey() + ", val="
+          + env.getValue());
+    }
+    
+    BufferedReader buf = null;
+    try {
+      String lines = Shell.WINDOWS ? Shell.execCommand("cmd", "/c", "dir") :
+          Shell.execCommand("ls", "-al");
+      buf = new BufferedReader(new StringReader(lines));
+      String line = "";
+      while ((line = buf.readLine()) != null) {
+        LOG.info("System CWD content: " + line);
+        System.out.println("System CWD content: " + line);
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+    } finally {
+      IOUtils.cleanup(LOG, buf);
+    }
+  }
+  
+  /**
+   * Helper function to print usage
+   *
+   * @param opts
+   *     Parsed command line options
+   */
+  private void printUsage(Options opts) {
+    new HelpFormatter().printHelp("ApplicationMaster", opts);
+  }
+  
   @VisibleForTesting
   protected boolean finish() {
     // wait for completion.
-    while (!done
-        && (numCompletedContainers.get() != numTotalContainers)) {
+    while (!done && (numCompletedContainers.get() != numTotalContainers)) {
       try {
         Thread.sleep(200);
       } catch (InterruptedException ex) {
@@ -588,11 +660,15 @@ public class ApplicationMaster {
     return success;
   }
   
+  private boolean fileExist(String filePath) {
+    return new File(filePath).exists();
+  }
+  
   /**
    * Thread to connect to the {@link ContainerManagementProtocol} and launch the container
    * that will execute the Python application
    */
-  public static class LaunchContainerRunnable implements Runnable {
+  private class LaunchContainerRunnable implements Runnable {
     
     // Allocated container
     Container container;
@@ -609,9 +685,9 @@ public class ApplicationMaster {
     
     @Override
     /**
-     * Connects to CM, sets up container launch context 
+     * Connects to CM, sets up container launch context
      * for Python application and eventually dispatches the container
-     * start request to the CM. 
+     * start request to the CM.
      */
     public void run() {
       LOG.info("Setting up container launch container for containerid="
@@ -647,7 +723,7 @@ public class ApplicationMaster {
       vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
       vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
       
-      // Get final commmand
+      // Get final command
       StringBuilder command = new StringBuilder();
       for (CharSequence str : vargs) {
         command.append(str).append(" ");
@@ -673,78 +749,5 @@ public class ApplicationMaster {
       nmWrapper.addContainer(container.getId(), container);
       nmWrapper.getClient().startContainerAsync(container, ctx);
     }
-  }
-  
-  /**
-   * Setup the request that will be sent to the RM for the container ask.
-   *
-   * @return the setup ResourceRequest to be sent to RM
-   */
-  public ContainerRequest setupContainerAskForRM() {
-    // setup requirements for hosts
-    // using * as any host will do for the yarnTF app
-    // set the priority for the request
-    // TODO - what is the range for priority? how to decide?
-    Priority pri = Priority.newInstance(requestPriority);
-    
-    // Set up resource type requirements
-    // For now, memory and CPU are supported so we set memory and cpu requirements
-    Resource capability = Resource.newInstance(containerMemory,
-        containerVirtualCores);
-    
-    ContainerRequest request = new ContainerRequest(capability, null, null,
-        pri);
-    LOG.info("Requested container ask: " + request.toString());
-    return request;
-  }
-  
-  private boolean fileExist(String filePath) {
-    return new File(filePath).exists();
-  }
-  
-  // Getters for NM
-  public TimelineHandler getTimelineHandler() {
-    return timelineHandler;
-  }
-  
-  public AtomicInteger getNumCompletedContainers() {
-    return numCompletedContainers;
-  }
-  
-  public AtomicInteger getNumFailedContainers() {
-    return numFailedContainers;
-  }
-  
-  // for RM
-  public ApplicationAttemptId getAppAttemptID() {
-    return appAttemptID;
-  }
-  
-  public AtomicInteger getNumAllocatedContainers() {
-    return numAllocatedContainers;
-  }
-  
-  public AtomicInteger getNumRequestedContainers() {
-    return numRequestedContainers;
-  }
-  
-  public int getNumTotalContainers() {
-    return numTotalContainers;
-  }
-  
-  public int getNumWorkers() {
-    return numWorkers;
-  }
-  
-  public int getNumPses() {
-    return numPses;
-  }
-  
-  public void setDone() {
-    done = true;
-  }
-  
-  public void addLaunchThread(Thread lt) {
-    launchThreads.add(lt);
   }
 }

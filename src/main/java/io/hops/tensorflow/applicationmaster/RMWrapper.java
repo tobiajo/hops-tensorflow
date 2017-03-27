@@ -156,9 +156,8 @@ public class RMWrapper {
           throw new IllegalStateException("Too many TF tasks: worker " + worker + ", ps: " + ps);
         }
         
-        ApplicationMaster.LaunchContainerRunnable runnableLaunchContainer =
-            new ApplicationMaster.LaunchContainerRunnable(allocatedContainer, jobName, taskIndex);
-        Thread launchThread = new Thread(runnableLaunchContainer);
+        Thread launchThread = new Thread(applicationMaster
+            .createLaunchContainerRunnable(allocatedContainer, jobName, taskIndex));
         
         // launch and start the container on a separate thread to keep
         // the main thread unblocked
