@@ -20,6 +20,7 @@ package io.hops.tensorflow;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.hops.tensorflow.applicationmaster.NMWrapper;
+import io.hops.tensorflow.applicationmaster.RMWrapper;
 import io.hops.tensorflow.applicationmaster.TimelineHandler;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
@@ -47,20 +48,15 @@ import org.apache.hadoop.yarn.api.ContainerManagementProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.Container;
-import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
-import org.apache.hadoop.yarn.api.records.ContainerState;
-import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
-import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
-import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
@@ -81,7 +77,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.hops.tensorflow.ApplicationMasterArguments.APP_ATTEMPT_ID;
@@ -124,8 +119,7 @@ public class ApplicationMaster {
   private Configuration conf;
   
   // Handle to communicate with the Resource Manager
-  @SuppressWarnings("rawtypes")
-  private AMRMClientAsync amRMClient;
+  private RMWrapper rmWrapper;
   
   // In both secure and non-secure modes, this points to the job-submitter.
   @VisibleForTesting
@@ -459,11 +453,9 @@ public class ApplicationMaster {
     appSubmitterUgi = UserGroupInformation.createRemoteUser(appSubmitterUserName);
     appSubmitterUgi.addCredentials(credentials);
     
-    
-    AMRMClientAsync.CallbackHandler allocListener = new RMCallbackHandler();
-    amRMClient = AMRMClientAsync.createAMRMClientAsync(1000, allocListener);
-    amRMClient.init(conf);
-    amRMClient.start();
+    rmWrapper = new RMWrapper(this);
+    rmWrapper.getClient().init(conf);
+    rmWrapper.getClient().start();
     
     nmWrapper = new NMWrapper(this);
     nmWrapper.getClient().init(conf);
@@ -484,7 +476,7 @@ public class ApplicationMaster {
     // Register self with ResourceManager
     // This will start heartbeating to the RM
     appMasterHostname = NetUtils.getHostname();
-    RegisterApplicationMasterResponse response = amRMClient
+    RegisterApplicationMasterResponse response = rmWrapper.getClient()
         .registerApplicationMaster(appMasterHostname, appMasterRpcPort, appMasterTrackingUrl);
     // Dump out information about cluster capability as seen by the
     // resource manager
@@ -524,14 +516,9 @@ public class ApplicationMaster {
     // executed on them ( regardless of success/failure).
     for (int i = 0; i < numTotalContainersToRequest; ++i) {
       ContainerRequest containerAsk = setupContainerAskForRM();
-      amRMClient.addContainerRequest(containerAsk);
+      rmWrapper.getClient().addContainerRequest(containerAsk);
     }
     numRequestedContainers.set(numTotalContainers);
-  }
-  
-  @VisibleForTesting
-  NMWrapper createNMCallbackHandler() {
-    return new NMWrapper(this);
   }
   
   @VisibleForTesting
@@ -584,14 +571,14 @@ public class ApplicationMaster {
       success = false;
     }
     try {
-      amRMClient.unregisterApplicationMaster(appStatus, appMessage, null);
+      rmWrapper.getClient().unregisterApplicationMaster(appStatus, appMessage, null);
     } catch (YarnException ex) {
       LOG.error("Failed to unregister application", ex);
     } catch (IOException e) {
       LOG.error("Failed to unregister application", e);
     }
     
-    amRMClient.stop();
+    rmWrapper.getClient().stop();
     
     // Stop Timeline Client
     if (timelineHandler.isClientNotNull()) {
@@ -601,153 +588,11 @@ public class ApplicationMaster {
     return success;
   }
   
-  private class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
-    
-    Map<ContainerId, Container> allAllocatedContainers = new ConcurrentHashMap<>();
-    
-    @SuppressWarnings("unchecked")
-    @Override
-    public void onContainersCompleted(List<ContainerStatus> completedContainers) {
-      LOG.info("Got response from RM for container ask, completedCnt="
-          + completedContainers.size());
-      for (ContainerStatus containerStatus : completedContainers) {
-        LOG.info(appAttemptID + " got container status for containerID="
-            + containerStatus.getContainerId() + ", state="
-            + containerStatus.getState() + ", exitStatus="
-            + containerStatus.getExitStatus() + ", diagnostics="
-            + containerStatus.getDiagnostics());
-        
-        // non complete containers should not be here
-        assert (containerStatus.getState() == ContainerState.COMPLETE);
-        
-        // increment counters for completed/failed containers
-        int exitStatus = containerStatus.getExitStatus();
-        if (0 != exitStatus) {
-          // container failed
-          if (ContainerExitStatus.ABORTED != exitStatus) {
-            // application failed
-            // counts as completed
-            numCompletedContainers.incrementAndGet();
-            numFailedContainers.incrementAndGet();
-          } else {
-            // container was killed by framework, possibly preempted
-            // we should re-try as the container was lost for some reason
-            numAllocatedContainers.decrementAndGet();
-            numRequestedContainers.decrementAndGet();
-            // we do not need to release the container as it would be done
-            // by the RM
-          }
-        } else {
-          // nothing to do
-          // container completed successfully
-          numCompletedContainers.incrementAndGet();
-          LOG.info("Container completed successfully." + ", containerId="
-              + containerStatus.getContainerId());
-        }
-        if (timelineHandler.isClientNotNull()) {
-          timelineHandler.publishContainerEndEvent(containerStatus);
-        }
-      }
-      
-      // ask for more containers if any failed
-      int askCount = numTotalContainers - numRequestedContainers.get();
-      numRequestedContainers.addAndGet(askCount);
-      
-      if (askCount > 0) {
-        for (int i = 0; i < askCount; ++i) {
-          ContainerRequest containerAsk = setupContainerAskForRM();
-          amRMClient.addContainerRequest(containerAsk);
-        }
-      }
-      
-      if (numCompletedContainers.get() == numTotalContainers) {
-        done = true;
-      }
-    }
-    
-    @Override
-    public void onContainersAllocated(List<Container> allocatedContainers) {
-      LOG.info("Got response from RM for container ask, allocatedCnt=" + allocatedContainers.size());
-      numAllocatedContainers.addAndGet(allocatedContainers.size());
-      for (Container allocatedContainer : allocatedContainers) {
-        allAllocatedContainers.put(allocatedContainer.getId(), allocatedContainer);
-      }
-      if (numAllocatedContainers.get() == numTotalContainers) {
-        assert numAllocatedContainers.get() == allAllocatedContainers.size();
-        launchAllContainers();
-      }
-    }
-    
-    private void launchAllContainers() {
-      int worker = -1;
-      int ps = -1;
-      for (Container allocatedContainer : allAllocatedContainers.values()) {
-        LOG.info("Launching yarnTF application on a new container."
-            + ", containerId=" + allocatedContainer.getId()
-            + ", containerNode=" + allocatedContainer.getNodeId().getHost()
-            + ":" + allocatedContainer.getNodeId().getPort()
-            + ", containerNodeURI=" + allocatedContainer.getNodeHttpAddress()
-            + ", containerResourceMemory"
-            + allocatedContainer.getResource().getMemory()
-            + ", containerResourceVirtualCores"
-            + allocatedContainer.getResource().getVirtualCores());
-        // + ", containerToken"
-        // +allocatedContainer.getContainerToken().getIdentifier().toString());
-        
-        String jobName;
-        int taskIndex;
-        
-        if (worker < numWorkers - 1) {
-          jobName = "worker";
-          taskIndex = ++worker;
-        } else if (ps < numPses - 1) {
-          jobName = "ps";
-          taskIndex = ++ps;
-        } else {
-          throw new IllegalStateException("Too many TF tasks: worker " + worker + ", ps: " + ps);
-        }
-        
-        LaunchContainerRunnable runnableLaunchContainer =
-            new LaunchContainerRunnable(allocatedContainer, jobName, taskIndex);
-        Thread launchThread = new Thread(runnableLaunchContainer);
-        
-        // launch and start the container on a separate thread to keep
-        // the main thread unblocked
-        // as all containers may not be allocated at one go.
-        launchThreads.add(launchThread);
-        launchThread.start();
-      }
-    }
-    
-    @Override
-    public void onShutdownRequest() {
-      done = true;
-    }
-    
-    @Override
-    public void onNodesUpdated(List<NodeReport> updatedNodes) {
-    }
-    
-    @Override
-    public float getProgress() {
-      // set progress to deliver to RM on next heartbeat
-      float progress = (float) numCompletedContainers.get()
-          / numTotalContainers;
-      return progress;
-    }
-    
-    @Override
-    public void onError(Throwable e) {
-      done = true;
-      amRMClient.stop();
-    }
-  }
-  
   /**
    * Thread to connect to the {@link ContainerManagementProtocol} and launch the container
    * that will execute the Python application
    */
-  private class LaunchContainerRunnable implements Runnable {
+  public static class LaunchContainerRunnable implements Runnable {
     
     // Allocated container
     Container container;
@@ -835,7 +680,7 @@ public class ApplicationMaster {
    *
    * @return the setup ResourceRequest to be sent to RM
    */
-  private ContainerRequest setupContainerAskForRM() {
+  public ContainerRequest setupContainerAskForRM() {
     // setup requirements for hosts
     // using * as any host will do for the yarnTF app
     // set the priority for the request
@@ -857,7 +702,7 @@ public class ApplicationMaster {
     return new File(filePath).exists();
   }
   
-  // Getters
+  // Getters for NM
   public TimelineHandler getTimelineHandler() {
     return timelineHandler;
   }
@@ -868,5 +713,38 @@ public class ApplicationMaster {
   
   public AtomicInteger getNumFailedContainers() {
     return numFailedContainers;
+  }
+  
+  // for RM
+  public ApplicationAttemptId getAppAttemptID() {
+    return appAttemptID;
+  }
+  
+  public AtomicInteger getNumAllocatedContainers() {
+    return numAllocatedContainers;
+  }
+  
+  public AtomicInteger getNumRequestedContainers() {
+    return numRequestedContainers;
+  }
+  
+  public int getNumTotalContainers() {
+    return numTotalContainers;
+  }
+  
+  public int getNumWorkers() {
+    return numWorkers;
+  }
+  
+  public int getNumPses() {
+    return numPses;
+  }
+  
+  public void setDone() {
+    done = true;
+  }
+  
+  public void addLaunchThread(Thread lt) {
+    launchThreads.add(lt);
   }
 }
