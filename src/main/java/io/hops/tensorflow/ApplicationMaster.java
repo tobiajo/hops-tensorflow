@@ -108,17 +108,12 @@ public class ApplicationMaster {
   // Configuration
   private Configuration conf;
   
-  // Handle to communicate with the Resource Manager
+  // Handles to communicate with the Resource Manager and Node Manager
   private RMWrapper rmWrapper;
-  
-  // In both secure and non-secure modes, this points to the job-submitter.
-  private UserGroupInformation appSubmitterUgi;
-  
-  // Handle to communicate with the Node Manager
   private NMWrapper nmWrapper;
   
-  // Application Attempt Id ( combination of attemptId and fail count )
-  private ApplicationAttemptId appAttemptID;
+  private ApplicationAttemptId appAttemptID; // combination of attemptId and fail count
+  private UserGroupInformation appSubmitterUgi;
   
   // TODO
   // For status update for clients - yet to be implemented
@@ -129,54 +124,34 @@ public class ApplicationMaster {
   // Tracking url to which app master publishes info for clients to monitor
   private String appMasterTrackingUrl = "";
   
+  // App Master configuration
   private int numWorkers;
   private int numPses;
-  
-  // App Master configuration
-  // No. of containers to run yarnTF on
   private int numTotalContainers;
-  // Memory to request for the container on which the application will run
   private int containerMemory;
-  // VirtualCores to request for the container on which the application will run
   private int containerVirtualCores;
-  // Priority of the request
   private int requestPriority;
   
-  // Counter for completed containers ( complete denotes successful or failed )
+  // Counters for containers
   private AtomicInteger numCompletedContainers = new AtomicInteger();
-  // Allocated container count so that we know how many containers has the RM
-  // allocated to us
-  private AtomicInteger numAllocatedContainers = new AtomicInteger();
-  // Count of failed containers
+  private AtomicInteger numAllocatedContainers = new AtomicInteger(); // by RM
   private AtomicInteger numFailedContainers = new AtomicInteger();
-  // Count of containers already requested from the RM
-  // Needed as once requested, we should not request for containers again.
-  // Only request for more if the original requirement changes.
   private AtomicInteger numRequestedContainers = new AtomicInteger();
   
+  // TF application
+  private String mainRelative;
   private String[] arguments = new String[]{};
-  
-  // Env variables to be setup for the yarnTF application
-  private Map<String, String> environment = new HashMap<>();
-  
-  // Timeline domain ID
-  private String domainId;
-  
-  private volatile boolean done;
-  
+  private Map<String, String> environment = new HashMap<>(); // Env variables
+  private Map<String, LocalResource> localResources = new HashMap<>();
   private ByteBuffer allTokens;
   
-  // Launch threads
+  private volatile boolean done;
   private List<Thread> launchThreads = new ArrayList<>();
   
-  // Timeline Client wrapper
   private TimelineHandler timelineHandler;
+  private String domainId; // Timeline domain ID
   
-  // yarnTF stuff
   private CommandLine cliParser;
-  private String mainRelative;
-  
-  Map<String, LocalResource> localResources = new HashMap<>();
   
   /**
    * @param args
@@ -208,7 +183,6 @@ public class ApplicationMaster {
   }
   
   public ApplicationMaster() {
-    // Set up the configuration
     conf = new YarnConfiguration();
   }
   
@@ -424,19 +398,12 @@ public class ApplicationMaster {
       timelineHandler.publishApplicationAttemptEvent(YarnTFEvent.YARNTF_APP_ATTEMPT_START);
     }
     
-    // Setup local RPC Server to accept status requests directly from clients
-    // TODO need to setup a protocol for client to be able to communicate to
-    // the RPC server
-    // TODO use the rpc port info to register with the RM for the client to
-    // send requests to this app master
-    
     // Register self with ResourceManager
     // This will start heartbeating to the RM
     appMasterHostname = NetUtils.getHostname();
     RegisterApplicationMasterResponse response = rmWrapper.getClient()
         .registerApplicationMaster(appMasterHostname, appMasterRpcPort, appMasterTrackingUrl);
-    // Dump out information about cluster capability as seen by the
-    // resource manager
+    // Dump out information about cluster capability as seen by the resource manager
     int maxMem = response.getMaximumResourceCapability().getMemory();
     LOG.info("Max mem capabililty of resources in this cluster " + maxMem);
     
@@ -446,31 +413,23 @@ public class ApplicationMaster {
     // A resource ask cannot exceed the max.
     if (containerMemory > maxMem) {
       LOG.info("Container memory specified above max threshold of cluster."
-          + " Using max value." + ", specified=" + containerMemory + ", max="
-          + maxMem);
+          + " Using max value." + ", specified=" + containerMemory + ", max=" + maxMem);
       containerMemory = maxMem;
     }
     
     if (containerVirtualCores > maxVCores) {
       LOG.info("Container virtual cores specified above max threshold of cluster."
-          + " Using max value." + ", specified=" + containerVirtualCores + ", max="
-          + maxVCores);
+          + " Using max value." + ", specified=" + containerVirtualCores + ", max=" + maxVCores);
       containerVirtualCores = maxVCores;
     }
     
-    List<Container> previousAMRunningContainers =
-        response.getContainersFromPreviousAttempts();
+    List<Container> previousAMRunningContainers = response.getContainersFromPreviousAttempts();
     LOG.info(appAttemptID + " received " + previousAMRunningContainers.size()
         + " previous attempts' running containers on AM registration.");
     numAllocatedContainers.addAndGet(previousAMRunningContainers.size());
     
-    int numTotalContainersToRequest = numTotalContainers - previousAMRunningContainers.size();
-    // Setup ask for containers from RM
     // Send request for containers to RM
-    // Until we get our fully allocated quota, we keep on polling RM for
-    // containers
-    // Keep looping until all the containers are launched and Python application
-    // executed on them ( regardless of success/failure).
+    int numTotalContainersToRequest = numTotalContainers - previousAMRunningContainers.size();
     for (int i = 0; i < numTotalContainersToRequest; ++i) {
       ContainerRequest containerAsk = setupContainerAskForRM();
       rmWrapper.getClient().addContainerRequest(containerAsk);
@@ -685,10 +644,13 @@ public class ApplicationMaster {
      * start request to the CM.
      */
     public void run() {
-      LOG.info("Setting up container launch container for containerid="
-          + container.getId());
+      LOG.info("Setting up container launch container for containerid=" + container.getId());
       
-      // Set the necessary command to execute on the allocated container
+      Map<String, String> envCopy = new HashMap<>(environment);
+      envCopy.put("JOB_NAME", jobName);
+      envCopy.put("TASK_INDEX", Integer.toString(taskIndex));
+      
+      // Set the executable command for the allocated container
       Vector<CharSequence> vargs = new Vector<>(5);
       
       // https://www.tensorflow.org/deploy/hadoop
@@ -696,8 +658,6 @@ public class ApplicationMaster {
       vargs.add("CLASSPATH=$($HADOOP_HDFS_HOME/bin/hadoop classpath --glob)");
       
       vargs.add("python " + mainRelative);
-      
-      // Set args for the Python application if any
       vargs.add(StringUtils.join(arguments, " "));
       
       // Add log redirect params
@@ -715,18 +675,9 @@ public class ApplicationMaster {
       
       // Set up ContainerLaunchContext, setting local resource, environment,
       // command and token for constructor.
-      
-      // Note for tokens: Set up tokens for the container too. Today, for normal
-      // Python applications, the container in yarnTF doesn't need any
-      // tokens. We are populating them mainly for NodeManagers to be able to
-      // download anyfiles in the distributed file-system. The tokens are
-      // otherwise also useful in cases, for e.g., when one is running a
-      // "hadoop dfs" command inside the distributed shell.
-      Map<String, String> envCopy = new HashMap<>(environment);
-      envCopy.put("JOB_NAME", jobName);
-      envCopy.put("TASK_INDEX", Integer.toString(taskIndex));
       ContainerLaunchContext ctx = ContainerLaunchContext.newInstance(
           localResources, envCopy, commands, null, allTokens.duplicate(), null);
+      
       nmWrapper.addContainer(container.getId(), container);
       nmWrapper.getClient().startContainerAsync(container, ctx);
     }

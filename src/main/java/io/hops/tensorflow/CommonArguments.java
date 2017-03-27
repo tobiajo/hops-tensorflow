@@ -20,7 +20,7 @@ package io.hops.tensorflow;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 
-public class CommonArguments {
+public abstract class CommonArguments {
   
   public static final String ARGS = "args";
   public static final String WORKERS = "workers";

@@ -74,8 +74,7 @@ public class RMWrapper {
         if (0 != exitStatus) {
           // container failed
           if (ContainerExitStatus.ABORTED != exitStatus) {
-            // application failed
-            // counts as completed
+            // application failed, counts as completed
             applicationMaster.getNumCompletedContainers().incrementAndGet();
             applicationMaster.getNumFailedContainers().incrementAndGet();
           } else {
@@ -83,12 +82,10 @@ public class RMWrapper {
             // we should re-try as the container was lost for some reason
             applicationMaster.getNumAllocatedContainers().decrementAndGet();
             applicationMaster.getNumRequestedContainers().decrementAndGet();
-            // we do not need to release the container as it would be done
-            // by the RM
+            // we do not need to release the container as it would be done by the RM
           }
         } else {
-          // nothing to do
-          // container completed successfully
+          // nothing to do, container completed successfully
           applicationMaster.getNumCompletedContainers().incrementAndGet();
           LOG.info("Container completed successfully." + ", containerId="
               + containerStatus.getContainerId());

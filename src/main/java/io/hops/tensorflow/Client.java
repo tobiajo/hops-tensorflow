@@ -110,73 +110,48 @@ public class Client {
   // Configuration
   private Configuration conf;
   private YarnClient yarnClient;
-  // Application master specific info to register a new Application with RM/ASM
-  private String name;
-  // App master priority
+  
+  // App master config
   private int amPriority;
-  // Queue for App master
   private String amQueue;
-  // Amt. of memory resource to request for to run the App Master
   private int amMemory;
-  // Amt. of virtual core resource to request for to run the App Master
   private int amVCores;
+  private String amJar; // path
+  private final String appMasterMainClass; // class name
   
-  // Application master jar file
-  private String appMasterJar;
-  // Main class to invoke application master
-  private final String appMasterMainClass;
-  
+  // TF application config
+  private int priority;
+  private String name;
+  private String mainPath;
+  private String mainRelativePath; // relative for worker or ps
+  private String[] arguments; // to be passed to the application
   private int numWorkers;
   private int numPses;
-  
-  // Args to be passed to the application
-  private String[] arguments;
-  // Env variables to be setup for the Python application
-  private Map<String, String> environment = new HashMap<>();
-  // Python application Container priority
-  private int priority;
-  
-  // Amt of memory to request for container in which Python application will be executed
   private int memory;
-  // Amt. of virtual cores to request for container in which Python application will be executed
   private int vcores;
+  private Map<String, String> environment = new HashMap<>(); // environment variables
+  
   private String nodeLabelExpression;
+  private String log4jPropFile; // if available, add to local resources and set into classpath
   
-  // log4j.properties file
-  // if available, add to local resources and set into classpath
-  private String log4jPropFile;
-  
-  // Start time for client
+  // Timeout threshold for client. Kill app after time interval expires
   private final long clientStartTime = System.currentTimeMillis();
-  // Timeout threshold for client. Kill app after time interval expires.
   private long clientTimeout;
   
-  // flag to indicate whether to keep containers across application attempts.
-  private boolean keepContainers;
-  
+  private boolean keepContainers; // keep containers across application attempts.
   private long attemptFailuresValidityInterval;
   
-  // Debug flag
   private boolean debugFlag;
   
-  // Timeline domain ID
+  // Timeline config
   private String domainId;
-  
-  // Flag to indicate whether to create the domain of the given ID
-  private boolean toCreateDomain;
-  
-  // Timeline domain reader access control
-  private String viewACLs;
-  
-  // Timeline domain writer access control
-  private String modifyACLs;
+  private boolean toCreateDomain; // whether to create the domain of the given ID
+  private String viewACLs; // reader access control
+  private String modifyACLs; // writer access control
   
   // Command line options
   private Options opts;
-  
   private CommandLine cliParser;
-  private String mainPath;
-  private String mainRelativePath; // relative for worker or ps
   
   /**
    * @param args
@@ -295,7 +270,7 @@ public class Client {
     if (!cliParser.hasOption(AM_JAR)) {
       throw new IllegalArgumentException("No jar file specified for application master");
     }
-    appMasterJar = cliParser.getOptionValue(AM_JAR);
+    amJar = cliParser.getOptionValue(AM_JAR);
     
     if (!cliParser.hasOption(MAIN)) {
       throw new IllegalArgumentException("No main application file specified");
@@ -370,7 +345,7 @@ public class Client {
    * @throws YarnException
    */
   public boolean run() throws IOException, YarnException {
-    // Monitor the application
+    // Submit and monitor the application
     return monitorApplication(submitApplication());
   }
   
@@ -395,17 +370,9 @@ public class Client {
     ContainerLaunchContext containerContext = createContainerLaunchContext(appResponse);
     ApplicationSubmissionContext appContext = createApplicationSubmissionContext(app, containerContext);
     
-    // Submit the application to the applications manager
-    // SubmitApplicationResponse submitResp = applicationsManager.submitApplication(appRequest);
-    // Ignore the response as either a valid response object is returned on success
-    // or an exception thrown to denote some form of a failure
     LOG.info("Submitting application to ASM");
-    
     yarnClient.submitApplication(appContext);
     
-    // TODO
-    // Try submitting the same request again
-    // app submission failure?
     return appId;
   }
   
@@ -443,6 +410,84 @@ public class Client {
     }
   }
   
+  /**
+   * Monitor the submitted application for completion.
+   * Kill application if time expires.
+   *
+   * @param appId
+   *     Application Id of application to be monitored
+   * @return true if application completed successfully
+   * @throws YarnException
+   * @throws IOException
+   */
+  public boolean monitorApplication(ApplicationId appId)
+      throws YarnException, IOException {
+    
+    while (true) {
+      
+      // Check app status every 1 second.
+      try {
+        Thread.sleep(1000);
+      } catch (InterruptedException e) {
+        LOG.debug("Thread sleep in monitoring loop interrupted");
+      }
+      
+      ApplicationReport report = yarnClient.getApplicationReport(appId);
+      
+      LOG.info("Got application report from ASM for"
+          + ", appId=" + appId.getId()
+          + ", clientToAMToken=" + report.getClientToAMToken()
+          + ", appDiagnostics=" + report.getDiagnostics()
+          + ", appMasterHost=" + report.getHost()
+          + ", appQueue=" + report.getQueue()
+          + ", appMasterRpcPort=" + report.getRpcPort()
+          + ", appStartTime=" + report.getStartTime()
+          + ", yarnAppState=" + report.getYarnApplicationState().toString()
+          + ", distributedFinalState=" + report.getFinalApplicationStatus().toString()
+          + ", appTrackingUrl=" + report.getTrackingUrl()
+          + ", appUser=" + report.getUser());
+      
+      YarnApplicationState state = report.getYarnApplicationState();
+      FinalApplicationStatus dsStatus = report.getFinalApplicationStatus();
+      if (YarnApplicationState.FINISHED == state) {
+        if (FinalApplicationStatus.SUCCEEDED == dsStatus) {
+          LOG.info("Application has completed successfully. Breaking monitoring loop");
+          return true;
+        } else {
+          LOG.info("Application did finished unsuccessfully."
+              + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString()
+              + ". Breaking monitoring loop");
+          return false;
+        }
+      } else if (YarnApplicationState.KILLED == state
+          || YarnApplicationState.FAILED == state) {
+        LOG.info("Application did not finish."
+            + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString()
+            + ". Breaking monitoring loop");
+        return false;
+      }
+      
+      if (System.currentTimeMillis() > (clientStartTime + clientTimeout)) {
+        LOG.info("Reached client specified timeout for application. Killing application");
+        forceKillApplication(appId);
+        return false;
+      }
+    }
+    
+  }
+  
+  /**
+   * Kill a submitted application by sending a call to the ASM
+   *
+   * @param appId
+   *     Application Id to be killed.
+   * @throws YarnException
+   * @throws IOException
+   */
+  public void forceKillApplication(ApplicationId appId) throws YarnException, IOException {
+    yarnClient.killApplication(appId);
+  }
+  
   private void prepareTimelineDomain() {
     TimelineClient timelineClient;
     if (conf.getBoolean(YarnConfiguration.TIMELINE_SERVICE_ENABLED,
@@ -456,8 +501,6 @@ public class Client {
       return;
     }
     try {
-      //TODO: we need to check and combine the existing timeline domain ACLs,
-      //but let's do it once we have client java library to query domains.
       TimelineDomain domain = new TimelineDomain();
       domain.setId(domainId);
       domain.setReaders(viewACLs != null && viewACLs.length() > 0 ? viewACLs : " ");
@@ -472,15 +515,9 @@ public class Client {
   }
   
   private void verifyClusterResources(GetNewApplicationResponse appResponse) {
-    // TODO get min/max resource capabilities from RM and change memory ask if needed
-    // If we do not have min/max, we may not be able to correctly request
-    // the required resources from the RM for the app master
-    // Memory ask has to be a multiple of min and less than max.
-    // Dump out information about cluster capability as seen by the resource manager
     int maxMem = appResponse.getMaximumResourceCapability().getMemory();
     LOG.info("Max mem capabililty of resources in this cluster " + maxMem);
     
-    // A resource ask cannot exceed the max.
     if (amMemory > maxMem) {
       LOG.info("AM memory specified above max threshold of cluster. Using max value."
           + ", specified=" + amMemory
@@ -504,20 +541,15 @@ public class Client {
     FileSystem fs = FileSystem.get(conf);
     ApplicationId appId = appResponse.getApplicationId();
     
-    Map<String, String> launchEnv = setupLaunchEnv(fs, appId);
     Map<String, LocalResource> localResources = prepareLocalResources(fs, appId);
+    Map<String, String> launchEnv = setupLaunchEnv();
     
-    // Set the necessary command to execute the application master
-    Vector<CharSequence> vargs = new Vector<CharSequence>(30);
-    
-    // Set java executable command
+    // Set the executable command for the application master
+    Vector<CharSequence> vargs = new Vector<>(30);
     LOG.info("Setting up app master command");
     vargs.add(Environment.JAVA_HOME.$$() + "/bin/java");
-    // Set Xmx based on am memory size
     vargs.add("-Xmx" + amMemory + "m");
-    // Set class name
     vargs.add(appMasterMainClass);
-    // Set params for Application Master
     
     vargs.add(newArg(MEMORY, String.valueOf(memory)));
     vargs.add(newArg(VCORES, String.valueOf(vcores)));
@@ -537,10 +569,11 @@ public class Client {
       vargs.add("--debug");
     }
     
+    // Add log redirect params
     vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stdout");
     vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stderr");
     
-    // Get final commmand
+    // Get final command
     StringBuilder command = new StringBuilder();
     for (CharSequence str : vargs) {
       command.append(str).append(" ");
@@ -554,26 +587,15 @@ public class Client {
     ContainerLaunchContext amContainer = ContainerLaunchContext.newInstance(
         localResources, launchEnv, commands, null, null, null);
     
-    // Set the necessary security tokens as needed
-    // amContainer.setContainerTokens(containerToken);
-    
-    // Service data is a binary blob that can be passed to the application
-    // Not needed in this scenario
-    // amContainer.setServiceData(serviceData);
-    
     // Setup security tokens
     if (UserGroupInformation.isSecurityEnabled()) {
-      // Note: Credentials class is marked as LimitedPrivate for HDFS and MapReduce
       Credentials credentials = new Credentials();
       String tokenRenewer = conf.get(YarnConfiguration.RM_PRINCIPAL);
       if (tokenRenewer == null || tokenRenewer.length() == 0) {
-        throw new IOException(
-            "Can't get Master Kerberos principal for the RM to use as renewer");
+        throw new IOException("Can't get Master Kerberos principal for the RM to use as renewer");
       }
-      
-      // For now, only getting tokens for the default file-system.
-      final Token<?> tokens[] =
-          fs.addDelegationTokens(tokenRenewer, credentials);
+      // For now: only getting tokens for the default file-system.
+      final Token<?> tokens[] = fs.addDelegationTokens(tokenRenewer, credentials);
       if (tokens != null) {
         for (Token<?> token : tokens) {
           LOG.info("Got dt for " + fs.getUri() + "; " + token);
@@ -592,11 +614,11 @@ public class Client {
     return "--" + param + " " + value;
   }
   
-  private ApplicationSubmissionContext createApplicationSubmissionContext(YarnClientApplication app,
-      ContainerLaunchContext containerContext) {
+  private ApplicationSubmissionContext createApplicationSubmissionContext(
+      YarnClientApplication app, ContainerLaunchContext containerContext) {
+    
     ApplicationSubmissionContext appContext = app.getApplicationSubmissionContext();
     
-    // set the application name
     if (name == null) {
       appContext.setApplicationName(mainRelativePath);
     } else {
@@ -605,7 +627,6 @@ public class Client {
     appContext.setApplicationType("YARNTF");
     
     appContext.setKeepContainersAcrossApplicationAttempts(keepContainers);
-    
     if (attemptFailuresValidityInterval >= 0) {
       appContext.setAttemptFailuresValidityInterval(attemptFailuresValidityInterval);
     }
@@ -614,27 +635,15 @@ public class Client {
       appContext.setNodeLabelExpression(nodeLabelExpression);
     }
     
-    // Set up resource type requirements
-    // For now, both memory and vcores are supported, so we set memory and
-    // vcores requirements
-    Resource capability = Resource.newInstance(amMemory, amVCores);
-    appContext.setResource(capability);
-    
+    appContext.setResource(Resource.newInstance(amMemory, amVCores));
     appContext.setAMContainerSpec(containerContext);
-    
-    // Set the priority for the application master
-    // TODO - what is the range for priority? how to decide?
-    Priority pri = Priority.newInstance(amPriority);
-    appContext.setPriority(pri);
-    
-    // Set the queue to which this application is to be submitted in the RM
-    appContext.setQueue(amQueue);
+    appContext.setPriority(Priority.newInstance(amPriority));
+    appContext.setQueue(amQueue); // the queue to which this application is to be submitted in the RM
     
     return appContext;
   }
   
-  private Map<String, String> setupLaunchEnv(FileSystem fs, ApplicationId appId) throws IOException {
-    // Set the env variables to be setup in the env where the application master will be run
+  private Map<String, String> setupLaunchEnv() throws IOException {
     LOG.info("Set the environment for the application master");
     Map<String, String> env = new HashMap<String, String>();
     
@@ -643,11 +652,6 @@ public class Client {
     }
     
     // Add AppMaster.jar location to classpath
-    // At some point we should not be required to add
-    // the hadoop specific classpaths to the env.
-    // It should be provided out of the box.
-    // For now setting all required classpaths including
-    // the classpath to "." for the application jar
     StringBuilder classPathEnv = new StringBuilder(Environment.CLASSPATH.$$())
         .append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("./*");
     for (String c : conf.getStrings(
@@ -678,9 +682,8 @@ public class Client {
     
     // Copy the application master jar to the filesystem
     // Create a local resource to point to the destination jar path
-    addResource(fs, appId, appMasterJar, null, Constants.AM_JAR_PATH, null, localResources, null);
+    addResource(fs, appId, amJar, null, Constants.AM_JAR_PATH, null, localResources, null);
     
-    // Set the log4j properties if needed
     if (!log4jPropFile.isEmpty()) {
       addResource(fs, appId, log4jPropFile, null, Constants.LOG4J_PATH, null, localResources, null);
     }
@@ -772,91 +775,5 @@ public class Client {
     }
     
     return dstName;
-  }
-  
-  /**
-   * Monitor the submitted application for completion.
-   * Kill application if time expires.
-   *
-   * @param appId
-   *     Application Id of application to be monitored
-   * @return true if application completed successfully
-   * @throws YarnException
-   * @throws IOException
-   */
-  public boolean monitorApplication(ApplicationId appId)
-      throws YarnException, IOException {
-    
-    while (true) {
-      
-      // Check app status every 1 second.
-      try {
-        Thread.sleep(1000);
-      } catch (InterruptedException e) {
-        LOG.debug("Thread sleep in monitoring loop interrupted");
-      }
-      
-      // Get application report for the appId we are interested in 
-      ApplicationReport report = yarnClient.getApplicationReport(appId);
-      
-      LOG.info("Got application report from ASM for"
-          + ", appId=" + appId.getId()
-          + ", clientToAMToken=" + report.getClientToAMToken()
-          + ", appDiagnostics=" + report.getDiagnostics()
-          + ", appMasterHost=" + report.getHost()
-          + ", appQueue=" + report.getQueue()
-          + ", appMasterRpcPort=" + report.getRpcPort()
-          + ", appStartTime=" + report.getStartTime()
-          + ", yarnAppState=" + report.getYarnApplicationState().toString()
-          + ", distributedFinalState=" + report.getFinalApplicationStatus().toString()
-          + ", appTrackingUrl=" + report.getTrackingUrl()
-          + ", appUser=" + report.getUser());
-      
-      YarnApplicationState state = report.getYarnApplicationState();
-      FinalApplicationStatus dsStatus = report.getFinalApplicationStatus();
-      if (YarnApplicationState.FINISHED == state) {
-        if (FinalApplicationStatus.SUCCEEDED == dsStatus) {
-          LOG.info("Application has completed successfully. Breaking monitoring loop");
-          return true;
-        } else {
-          LOG.info("Application did finished unsuccessfully."
-              + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString()
-              + ". Breaking monitoring loop");
-          return false;
-        }
-      } else if (YarnApplicationState.KILLED == state
-          || YarnApplicationState.FAILED == state) {
-        LOG.info("Application did not finish."
-            + " YarnState=" + state.toString() + ", DSFinalStatus=" + dsStatus.toString()
-            + ". Breaking monitoring loop");
-        return false;
-      }
-      
-      if (System.currentTimeMillis() > (clientStartTime + clientTimeout)) {
-        LOG.info("Reached client specified timeout for application. Killing application");
-        forceKillApplication(appId);
-        return false;
-      }
-    }
-    
-  }
-  
-  /**
-   * Kill a submitted application by sending a call to the ASM
-   *
-   * @param appId
-   *     Application Id to be killed.
-   * @throws YarnException
-   * @throws IOException
-   */
-  public void forceKillApplication(ApplicationId appId)
-      throws YarnException, IOException {
-    // TODO clarify whether multiple jobs with the same app id can be submitted and be running at 
-    // the same time. 
-    // If yes, can we kill a particular attempt only?
-    
-    // Response can be ignored as it is non-null on success or 
-    // throws an exception in case of failures
-    yarnClient.killApplication(appId);
   }
 }
