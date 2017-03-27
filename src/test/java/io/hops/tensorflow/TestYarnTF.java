@@ -41,7 +41,7 @@ public class TestYarnTF extends TestCluster {
   @Test(timeout = 90000)
   public void testCreateClusterSpec() throws Exception {
     ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-    String mainPath = classLoader.getResource("create_train_server.py").getPath();
+    String mainPath = classLoader.getResource("create_cluster_server.py").getPath();
     String[] args = {
         "--" + AM_JAR, APPMASTER_JAR,
         "--" + AM_MEMORY, "256",
