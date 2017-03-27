@@ -189,8 +189,9 @@ public class ApplicationMaster {
   
   // yarnTF stuff
   private CommandLine cliParser;
-  private DistributedCacheList distCacheList;
   private String mainRelative;
+  
+  Map<String, LocalResource> localResources = new HashMap<>();
   
   /**
    * @param args
@@ -345,7 +346,8 @@ public class ApplicationMaster {
     
     environment.put("WORKERS", Integer.toString(numWorkers));
     environment.put("PSES", Integer.toString(numPses));
-    
+  
+    DistributedCacheList distCacheList = null;
     FileInputStream fin = null;
     ObjectInputStream ois = null;
     try {
@@ -361,6 +363,16 @@ public class ApplicationMaster {
       org.apache.commons.io.IOUtils.closeQuietly(fin);
     }
     LOG.info("Loaded distribute cache list: " + distCacheList.toString());
+    for (int i = 0; i < distCacheList.size(); i++) {
+      DistributedCacheList.Entry entry = distCacheList.get(i);
+      LocalResource distRsrc = LocalResource.newInstance(
+          ConverterUtils.getYarnUrlFromURI(entry.uri),
+          LocalResourceType.FILE,
+          LocalResourceVisibility.APPLICATION,
+          entry.size,
+          entry.timestamp);
+      localResources.put(entry.relativePath, distRsrc);
+    }
     
     return true;
   }
@@ -693,20 +705,6 @@ public class ApplicationMaster {
       LOG.info("Setting up container launch container for containerid="
           + container.getId());
       
-      // Set the local resources
-      Map<String, LocalResource> localResources = new HashMap<>();
-      
-      for (int i = 0; i < distCacheList.size(); i++) {
-        DistributedCacheList.Entry entry = distCacheList.get(i);
-        LocalResource distRsrc = LocalResource.newInstance(
-            ConverterUtils.getYarnUrlFromURI(entry.uri),
-            LocalResourceType.FILE,
-            LocalResourceVisibility.APPLICATION,
-            entry.size,
-            entry.timestamp);
-        localResources.put(entry.relativePath, distRsrc);
-      }
-      
       // Set the necessary command to execute on the allocated container
       Vector<CharSequence> vargs = new Vector<>(5);
       
@@ -729,7 +727,7 @@ public class ApplicationMaster {
         command.append(str).append(" ");
       }
       
-      List<String> commands = new ArrayList<String>();
+      List<String> commands = new ArrayList<>();
       commands.add(command.toString());
       
       // Set up ContainerLaunchContext, setting local resource, environment,
@@ -741,11 +739,11 @@ public class ApplicationMaster {
       // download anyfiles in the distributed file-system. The tokens are
       // otherwise also useful in cases, for e.g., when one is running a
       // "hadoop dfs" command inside the distributed shell.
-      Map<String, String> pyEnvCopy = new HashMap<>(environment);
-      pyEnvCopy.put("JOB_NAME", jobName);
-      pyEnvCopy.put("TASK_INDEX", Integer.toString(taskIndex));
+      Map<String, String> envCopy = new HashMap<>(environment);
+      envCopy.put("JOB_NAME", jobName);
+      envCopy.put("TASK_INDEX", Integer.toString(taskIndex));
       ContainerLaunchContext ctx = ContainerLaunchContext.newInstance(
-          localResources, pyEnvCopy, commands, null, allTokens.duplicate(), null);
+          localResources, envCopy, commands, null, allTokens.duplicate(), null);
       nmWrapper.addContainer(container.getId(), container);
       nmWrapper.getClient().startContainerAsync(container, ctx);
     }
