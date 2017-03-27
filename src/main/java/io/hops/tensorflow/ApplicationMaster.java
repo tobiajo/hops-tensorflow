@@ -389,6 +389,26 @@ public class ApplicationMaster {
       throw new IllegalArgumentException("Need at least 1 worker and 1 parameter server");
     }
     requestPriority = Integer.parseInt(cliParser.getOptionValue(PRIORITY, "0"));
+    
+    environment.put("WORKERS", Integer.toString(numWorkers));
+    environment.put("PSES", Integer.toString(numPses));
+    
+    FileInputStream fin = null;
+    ObjectInputStream ois = null;
+    try {
+      fin = new FileInputStream(Constants.DIST_CACHE_PATH);
+      ois = new ObjectInputStream(fin);
+      try {
+        distCacheList = (DistributedCacheList) ois.readObject();
+      } catch (ClassNotFoundException e) {
+        e.printStackTrace();
+      }
+    } finally {
+      org.apache.commons.io.IOUtils.closeQuietly(ois);
+      org.apache.commons.io.IOUtils.closeQuietly(fin);
+    }
+    LOG.info("Loaded distribute cache list: " + distCacheList.toString());
+    
     return true;
   }
   
@@ -413,24 +433,7 @@ public class ApplicationMaster {
     LOG.info("Starting ApplicationMaster. " +
         "Workers: " + numWorkers + ", Parameter servers: " + numPses);
     
-    FileInputStream fin = null;
-    ObjectInputStream ois = null;
-    try {
-      fin = new FileInputStream(Constants.DIST_CACHE_PATH);
-      ois = new ObjectInputStream(fin);
-      try {
-        distCacheList = (DistributedCacheList) ois.readObject();
-      } catch (ClassNotFoundException e) {
-        e.printStackTrace();
-      }
-    } finally {
-      org.apache.commons.io.IOUtils.closeQuietly(ois);
-      org.apache.commons.io.IOUtils.closeQuietly(fin);
-    }
-    
-    LOG.info("Loaded distribute cache list: " + distCacheList.toString());
     ClusterSpecGeneratorServer clusterSpecServer = new ClusterSpecGeneratorServer(numTotalContainers);
-    
     LOG.info("Starting ClusterSpecGeneratorServer");
     int port = 2222;
     while (true) {
@@ -910,10 +913,6 @@ public class ApplicationMaster {
       vargs.add("CLASSPATH=$($HADOOP_HDFS_HOME/bin/hadoop classpath --glob)");
       
       vargs.add("python " + mainRelative);
-      vargs.add("--workers=" + numWorkers);
-      vargs.add("--pses=" + numPses);
-      vargs.add("--job_name=" + jobName);
-      vargs.add("--task_index=" + taskIndex);
       
       // Set args for the Python application if any
       vargs.add(StringUtils.join(arguments, " "));
