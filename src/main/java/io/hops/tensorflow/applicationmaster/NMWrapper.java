@@ -27,7 +27,9 @@ import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.impl.NMClientAsyncImpl;
 
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -36,6 +38,7 @@ public class NMWrapper {
   private static final Log LOG = LogFactory.getLog(NMWrapper.class);
   
   private ConcurrentMap<ContainerId, Container> containers = new ConcurrentHashMap<>();
+  private Set<ContainerId> workerIds = Collections.newSetFromMap(new ConcurrentHashMap<ContainerId, Boolean>());
   private final ApplicationMaster applicationMaster;
   
   private NMClientAsync client;
@@ -49,8 +52,11 @@ public class NMWrapper {
     return client;
   }
   
-  public void addContainer(ContainerId containerId, Container container) {
+  public synchronized void addContainer(ContainerId containerId, Container container, boolean worker) {
     containers.putIfAbsent(containerId, container);
+    if (worker) {
+      workerIds.add(containerId);
+    }
   }
   
   private class CallbackHandler implements NMClientAsync.CallbackHandler {
@@ -92,6 +98,9 @@ public class NMWrapper {
       LOG.error("Failed to start Container " + containerId);
       containers.remove(containerId);
       applicationMaster.getNumCompletedContainers().incrementAndGet();
+      if (workerIds.contains(containerId)) {
+        applicationMaster.getNumCompletedWorkers().incrementAndGet();
+      }
       applicationMaster.getNumFailedContainers().incrementAndGet();
     }
     

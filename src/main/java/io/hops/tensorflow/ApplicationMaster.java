@@ -134,6 +134,7 @@ public class ApplicationMaster {
   
   // Counters for containers
   private AtomicInteger numCompletedContainers = new AtomicInteger();
+  private AtomicInteger numCompletedWorkers = new AtomicInteger();
   private AtomicInteger numAllocatedContainers = new AtomicInteger(); // by RM
   private AtomicInteger numFailedContainers = new AtomicInteger();
   private AtomicInteger numRequestedContainers = new AtomicInteger();
@@ -482,6 +483,10 @@ public class ApplicationMaster {
     return numCompletedContainers;
   }
   
+  public AtomicInteger getNumCompletedWorkers() {
+    return numCompletedWorkers;
+  }
+  
   public AtomicInteger getNumFailedContainers() {
     return numFailedContainers;
   }
@@ -551,7 +556,7 @@ public class ApplicationMaster {
   
   private boolean finish() {
     // wait for completion.
-    while (!done && (numCompletedContainers.get() != numTotalContainers)) {
+    while (!done && (numCompletedWorkers.get() != numWorkers)) {
       try {
         Thread.sleep(200);
       } catch (InterruptedException ex) {
@@ -585,14 +590,13 @@ public class ApplicationMaster {
     FinalApplicationStatus appStatus;
     String appMessage = null;
     boolean success = true;
-    if (numFailedContainers.get() == 0 && numCompletedContainers.get() == numTotalContainers) {
+    if (numFailedContainers.get() == 0 && numCompletedWorkers.get() == numWorkers) {
       appStatus = FinalApplicationStatus.SUCCEEDED;
     } else {
       appStatus = FinalApplicationStatus.FAILED;
-      appMessage = "Diagnostics." + ", total=" + numTotalContainers
-          + ", completed=" + numCompletedContainers.get() + ", allocated="
-          + numAllocatedContainers.get() + ", failed="
-          + numFailedContainers.get();
+      appMessage = "Diagnostics." + ", total=" + numTotalContainers + ", completed(workers)="
+          + numCompletedContainers.get() + "(" + numCompletedWorkers.get() + "), allocated="
+          + numAllocatedContainers.get() + ", failed=" + numFailedContainers.get();
       LOG.info(appMessage);
       success = false;
     }
@@ -678,7 +682,7 @@ public class ApplicationMaster {
       ContainerLaunchContext ctx = ContainerLaunchContext.newInstance(
           localResources, envCopy, commands, null, allTokens.duplicate(), null);
       
-      nmWrapper.addContainer(container.getId(), container);
+      nmWrapper.addContainer(container.getId(), container, jobName.equals("worker"));
       nmWrapper.getClient().startContainerAsync(container, ctx);
     }
   }

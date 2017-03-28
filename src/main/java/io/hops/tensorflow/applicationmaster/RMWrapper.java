@@ -29,8 +29,10 @@ import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class RMWrapper {
@@ -53,6 +55,7 @@ public class RMWrapper {
   private class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
     
     Map<ContainerId, Container> allAllocatedContainers = new ConcurrentHashMap<>();
+    Set<ContainerId> workerIds = Collections.newSetFromMap(new ConcurrentHashMap<ContainerId, Boolean>());
     
     @SuppressWarnings("unchecked")
     @Override
@@ -76,6 +79,9 @@ public class RMWrapper {
           if (ContainerExitStatus.ABORTED != exitStatus) {
             // application failed, counts as completed
             applicationMaster.getNumCompletedContainers().incrementAndGet();
+            if (workerIds.contains(containerStatus.getContainerId())) {
+              applicationMaster.getNumCompletedWorkers().incrementAndGet();
+            }
             applicationMaster.getNumFailedContainers().incrementAndGet();
           } else {
             // container was killed by framework, possibly preempted
@@ -87,6 +93,9 @@ public class RMWrapper {
         } else {
           // nothing to do, container completed successfully
           applicationMaster.getNumCompletedContainers().incrementAndGet();
+          if (workerIds.contains(containerStatus.getContainerId())) {
+            applicationMaster.getNumCompletedWorkers().incrementAndGet();
+          }
           LOG.info("Container completed successfully." + ", containerId="
               + containerStatus.getContainerId());
         }
@@ -106,7 +115,7 @@ public class RMWrapper {
         }
       }
       
-      if (applicationMaster.getNumCompletedContainers().get() == applicationMaster.getNumTotalContainers()) {
+      if (applicationMaster.getNumCompletedWorkers().get() == applicationMaster.getNumWorkers()) {
         applicationMaster.setDone();
       }
     }
@@ -146,6 +155,7 @@ public class RMWrapper {
         if (worker < applicationMaster.getNumWorkers() - 1) {
           jobName = "worker";
           taskIndex = ++worker;
+          workerIds.add(allocatedContainer.getId());
         } else if (ps < applicationMaster.getNumPses() - 1) {
           jobName = "ps";
           taskIndex = ++ps;
@@ -176,8 +186,8 @@ public class RMWrapper {
     @Override
     public float getProgress() {
       // set progress to deliver to RM on next heartbeat
-      float progress = (float) applicationMaster.getNumCompletedContainers().get()
-          / applicationMaster.getNumTotalContainers();
+      float progress = (float) applicationMaster.getNumCompletedWorkers().get()
+          / applicationMaster.getNumWorkers();
       return progress;
     }
     
