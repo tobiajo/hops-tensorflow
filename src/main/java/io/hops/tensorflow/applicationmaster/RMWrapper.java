@@ -136,7 +136,7 @@ public class RMWrapper {
       int worker = -1;
       int ps = -1;
       for (Container allocatedContainer : allAllocatedContainers.values()) {
-        LOG.info("Launching yarnTF application on a new container."
+        LOG.info("Launching yarntf application on a new container."
             + ", containerId=" + allocatedContainer.getId()
             + ", containerNode=" + allocatedContainer.getNodeId().getHost()
             + ":" + allocatedContainer.getNodeId().getPort()

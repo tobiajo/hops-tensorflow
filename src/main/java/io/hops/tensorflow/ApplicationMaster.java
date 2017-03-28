@@ -115,13 +115,8 @@ public class ApplicationMaster {
   private ApplicationAttemptId appAttemptID; // combination of attemptId and fail count
   private UserGroupInformation appSubmitterUgi;
   
-  // TODO
-  // For status update for clients - yet to be implemented
-  // Hostname of the container
   private String appMasterHostname;
-  // Port on which the app master listens for status updates from clients
   private int appMasterRpcPort = -1;
-  // Tracking url to which app master publishes info for clients to monitor
   private String appMasterTrackingUrl = "";
   
   // App Master configuration
@@ -455,10 +450,6 @@ public class ApplicationMaster {
    * @return the setup ResourceRequest to be sent to RM
    */
   public ContainerRequest setupContainerAskForRM() {
-    // setup requirements for hosts
-    // using * as any host will do for the yarnTF app
-    // set the priority for the request
-    // TODO - what is the range for priority? how to decide?
     Priority pri = Priority.newInstance(requestPriority);
     
     // Set up resource type requirements
@@ -466,8 +457,7 @@ public class ApplicationMaster {
     Resource capability = Resource.newInstance(containerMemory,
         containerVirtualCores);
     
-    ContainerRequest request = new ContainerRequest(capability, null, null,
-        pri);
+    ContainerRequest request = new ContainerRequest(capability, null, null, pri);
     LOG.info("Requested container ask: " + request.toString());
     return request;
   }
