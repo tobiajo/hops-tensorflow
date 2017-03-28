@@ -30,6 +30,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.net.NetUtils;
@@ -283,6 +284,7 @@ public class ApplicationMaster {
         environment.put(key, val);
       }
     }
+    environment.put("HOME_DIRECTORY", FileSystem.get(conf).getHomeDirectory().toString());
     
     if (envs.containsKey(Constants.YARNTFTIMELINEDOMAIN)) {
       domainId = envs.get(Constants.YARNTFTIMELINEDOMAIN);
