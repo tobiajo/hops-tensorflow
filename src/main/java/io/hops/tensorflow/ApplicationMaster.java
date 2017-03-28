@@ -343,7 +343,6 @@ public class ApplicationMaster {
    * @throws YarnException
    * @throws IOException
    */
-  @SuppressWarnings({"unchecked"})
   public void run() throws YarnException, IOException, InterruptedException {
     LOG.info("Starting ApplicationMaster. " +
         "Workers: " + numWorkers + ", Parameter servers: " + numPses);

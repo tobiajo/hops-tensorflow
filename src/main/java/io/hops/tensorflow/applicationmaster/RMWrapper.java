@@ -57,7 +57,6 @@ public class RMWrapper {
     Map<ContainerId, Container> allAllocatedContainers = new ConcurrentHashMap<>();
     Set<ContainerId> workerIds = Collections.newSetFromMap(new ConcurrentHashMap<ContainerId, Boolean>());
     
-    @SuppressWarnings("unchecked")
     @Override
     public void onContainersCompleted(List<ContainerStatus> completedContainers) {
       LOG.info("Got response from RM for container ask, completedCnt="
