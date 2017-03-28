@@ -547,8 +547,8 @@ public class ApplicationMaster {
   }
   
   private boolean finish() {
-    // wait for completion.
-    while (!done && (numCompletedWorkers.get() != numWorkers)) {
+    // wait for completion. finish if any container fails
+    while (!done && !(numCompletedWorkers.get() == numWorkers) && !(numFailedContainers.get() > 0)) {
       try {
         Thread.sleep(200);
       } catch (InterruptedException ex) {
