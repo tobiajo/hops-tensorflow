@@ -284,7 +284,6 @@ public class ApplicationMaster {
         environment.put(key, val);
       }
     }
-    environment.put("HOME_DIRECTORY", FileSystem.get(conf).getHomeDirectory().toString());
     
     if (envs.containsKey(Constants.YARNTFTIMELINEDOMAIN)) {
       domainId = envs.get(Constants.YARNTFTIMELINEDOMAIN);
@@ -303,6 +302,8 @@ public class ApplicationMaster {
     
     environment.put("WORKERS", Integer.toString(numWorkers));
     environment.put("PSES", Integer.toString(numPses));
+    environment.put("HOME_DIRECTORY", FileSystem.get(conf).getHomeDirectory().toString());
+    environment.put("PYTHONUNBUFFERED", "true");
     
     DistributedCacheList distCacheList = null;
     FileInputStream fin = null;
@@ -355,7 +356,6 @@ public class ApplicationMaster {
         port++;
       }
     }
-    
     environment.put("AM_ADDRESS", InetAddress.getLocalHost().getHostName() + ":" + port);
     environment.put("APPLICATION_ID", appAttemptID.getApplicationId().toString());
     
