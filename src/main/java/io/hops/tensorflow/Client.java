@@ -379,33 +379,33 @@ public class Client {
   private void logClusterState() throws IOException, YarnException {
     YarnClusterMetrics clusterMetrics = yarnClient.getYarnClusterMetrics();
     LOG.info("Got Cluster metric info from ASM"
-        + ", numNodeManagers=" + clusterMetrics.getNumNodeManagers());
+        + "\n\t numNodeManagers=" + clusterMetrics.getNumNodeManagers());
     
     List<NodeReport> clusterNodeReports = yarnClient.getNodeReports(
         NodeState.RUNNING);
     LOG.info("Got Cluster node info from ASM");
     for (NodeReport node : clusterNodeReports) {
       LOG.info("Got node report from ASM for"
-          + ", nodeId=" + node.getNodeId()
-          + ", nodeAddress" + node.getHttpAddress()
-          + ", nodeRackName" + node.getRackName()
-          + ", nodeNumContainers" + node.getNumContainers());
+          + "\n\t nodeId=" + node.getNodeId()
+          + "\n\t nodeAddress" + node.getHttpAddress()
+          + "\n\t nodeRackName" + node.getRackName()
+          + "\n\t nodeNumContainers" + node.getNumContainers());
     }
     
     QueueInfo queueInfo = yarnClient.getQueueInfo(this.amQueue);
     LOG.info("Queue info"
-        + ", queueName=" + queueInfo.getQueueName()
-        + ", queueCurrentCapacity=" + queueInfo.getCurrentCapacity()
-        + ", queueMaxCapacity=" + queueInfo.getMaximumCapacity()
-        + ", queueApplicationCount=" + queueInfo.getApplications().size()
-        + ", queueChildQueueCount=" + queueInfo.getChildQueues().size());
+        + "\n\t queueName=" + queueInfo.getQueueName()
+        + "\n\t queueCurrentCapacity=" + queueInfo.getCurrentCapacity()
+        + "\n\t queueMaxCapacity=" + queueInfo.getMaximumCapacity()
+        + "\n\t queueApplicationCount=" + queueInfo.getApplications().size()
+        + "\n\t queueChildQueueCount=" + queueInfo.getChildQueues().size());
     
     List<QueueUserACLInfo> listAclInfo = yarnClient.getQueueAclsInfo();
     for (QueueUserACLInfo aclInfo : listAclInfo) {
       for (QueueACL userAcl : aclInfo.getUserAcls()) {
         LOG.info("User ACL Info for Queue"
-            + ", queueName=" + aclInfo.getQueueName()
-            + ", userAcl=" + userAcl.name());
+            + "\n\t queueName=" + aclInfo.getQueueName()
+            + "\n\t userAcl=" + userAcl.name());
       }
     }
   }
@@ -420,8 +420,9 @@ public class Client {
    * @throws YarnException
    * @throws IOException
    */
-  public boolean monitorApplication(ApplicationId appId)
-      throws YarnException, IOException {
+  public boolean monitorApplication(ApplicationId appId) throws YarnException, IOException {
+    
+    YarnApplicationState oldState = null;
     
     while (true) {
       
@@ -433,22 +434,27 @@ public class Client {
       }
       
       ApplicationReport report = yarnClient.getApplicationReport(appId);
-      
-      LOG.info("Got application report from ASM for"
-          + ", appId=" + appId.getId()
-          + ", clientToAMToken=" + report.getClientToAMToken()
-          + ", appDiagnostics=" + report.getDiagnostics()
-          + ", appMasterHost=" + report.getHost()
-          + ", appQueue=" + report.getQueue()
-          + ", appMasterRpcPort=" + report.getRpcPort()
-          + ", appStartTime=" + report.getStartTime()
-          + ", yarnAppState=" + report.getYarnApplicationState().toString()
-          + ", distributedFinalState=" + report.getFinalApplicationStatus().toString()
-          + ", appTrackingUrl=" + report.getTrackingUrl()
-          + ", appUser=" + report.getUser());
-      
       YarnApplicationState state = report.getYarnApplicationState();
       FinalApplicationStatus dsStatus = report.getFinalApplicationStatus();
+      
+      if (oldState != state) {
+        LOG.info("Got application report from ASM for"
+            + "\n\t appId=" + appId.getId()
+            + "\n\t clientToAMToken=" + report.getClientToAMToken()
+            + "\n\t appDiagnostics=" + report.getDiagnostics()
+            + "\n\t appMasterHost=" + report.getHost()
+            + "\n\t appQueue=" + report.getQueue()
+            + "\n\t appMasterRpcPort=" + report.getRpcPort()
+            + "\n\t appStartTime=" + report.getStartTime()
+            + "\n\t yarnAppState=" + report.getYarnApplicationState().toString()
+            + "\n\t distributedFinalState=" + report.getFinalApplicationStatus().toString()
+            + "\n\t appTrackingUrl=" + report.getTrackingUrl()
+            + "\n\t appUser=" + report.getUser());
+        oldState = state;
+      } else {
+        LOG.info("Got application report from ASM for " + appId + " (state: " + state + ")");
+      }
+      
       if (YarnApplicationState.FINISHED == state) {
         if (FinalApplicationStatus.SUCCEEDED == dsStatus) {
           LOG.info("Application has completed successfully. Breaking monitoring loop");
@@ -678,7 +684,7 @@ public class Client {
     // set local resources for the application master
     // local files or archives as needed
     // In this scenario, the jar file for the application master is part of the local resources
-    Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
+    Map<String, LocalResource> localResources = new HashMap<>();
     
     // Copy the application master jar to the filesystem
     // Create a local resource to point to the destination jar path
