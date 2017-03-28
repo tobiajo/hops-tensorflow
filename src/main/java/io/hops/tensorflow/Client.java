@@ -651,7 +651,7 @@ public class Client {
   
   private Map<String, String> setupLaunchEnv() throws IOException {
     LOG.info("Set the environment for the application master");
-    Map<String, String> env = new HashMap<String, String>();
+    Map<String, String> env = new HashMap<>();
     
     if (domainId != null && domainId.length() > 0) {
       env.put(Constants.YARNTFTIMELINEDOMAIN, domainId);
@@ -752,21 +752,26 @@ public class Client {
     }
     
     Path baseDir = new Path(fs.getHomeDirectory(), Constants.YARNTF_STAGING + "/" + appId.toString());
-    String dstPath = dstDir + "/" + dstName;
+    String dstPath;
+    if (dstDir.startsWith(".")) {
+      dstPath = dstName;
+    } else {
+      dstPath = dstDir + "/" + dstName;
+    }
     Path dst = new Path(baseDir, dstPath);
     
-    LOG.info("Copy from local filesystem: " + src.getName());
+    LOG.info("Copying from local filesystem: " + src + " -> " + dst);
     fs.copyFromLocalFile(src, dst);
     FileStatus dstStatus = fs.getFileStatus(dst);
     
     if (distCache != null) {
-      LOG.info("Add to distributed cache: " + src.getName());
+      LOG.info("Adding to distributed cache: " + srcPath + " -> " + dstPath);
       distCache.add(new DistributedCacheList.Entry(
           dstPath, dst.toUri(), dstStatus.getLen(), dstStatus.getModificationTime()));
     }
     
     if (localResources != null) {
-      LOG.info("Add to local environment: " + src.getName());
+      LOG.info("Adding to local environment: " + srcPath + " -> " + dstPath);
       LocalResource resource = LocalResource.newInstance(
           ConverterUtils.getYarnUrlFromURI(dst.toUri()),
           LocalResourceType.FILE,
