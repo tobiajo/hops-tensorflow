@@ -34,7 +34,7 @@ public class TestClusterSpecGenerator {
   
   @Before
   public void setup() {
-    server = new ClusterSpecGeneratorServer(NUM_CONTAINERS);
+    server = new ClusterSpecGeneratorServer("(appId)", NUM_CONTAINERS);
     int port = INITIAL_PORT;
     while (port <= 65535) {
       try {
@@ -57,11 +57,11 @@ public class TestClusterSpecGenerator {
   
   @Test
   public void ClusterSpecGenTest() {
-    Assert.assertTrue(client.registerContainer("A1", "(ip)", 1024, "ps", 0));
-    Assert.assertTrue(client.registerContainer("A1", "(ip)", 1024, "ps", 0));
+    Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "ps", 0));
+    Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "ps", 0));
     Assert.assertEquals(0, client.getClusterSpec().size());
-    Assert.assertTrue(client.registerContainer("A1", "(ip)", 1024, "worker", 0));
-    Assert.assertTrue(client.registerContainer("A1", "(ip)", 1024, "worker", 1));
+    Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "worker", 0));
+    Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "worker", 1));
     Assert.assertEquals(NUM_CONTAINERS, client.getClusterSpec().size());
   }
 }

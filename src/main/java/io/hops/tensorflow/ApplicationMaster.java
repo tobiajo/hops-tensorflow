@@ -289,7 +289,7 @@ public class ApplicationMaster {
       domainId = envs.get(Constants.YARNTFTIMELINEDOMAIN);
     }
     
-    containerMemory = Integer.parseInt(cliParser.getOptionValue(MEMORY, "10"));
+    containerMemory = Integer.parseInt(cliParser.getOptionValue(MEMORY, "1024"));
     containerVirtualCores = Integer.parseInt(cliParser.getOptionValue(VCORES, "1"));
     
     numWorkers = Integer.parseInt(cliParser.getOptionValue(WORKERS, "1"));
@@ -345,7 +345,8 @@ public class ApplicationMaster {
     LOG.info("Starting ApplicationMaster. " +
         "Workers: " + numWorkers + ", Parameter servers: " + numPses);
     
-    ClusterSpecGeneratorServer clusterSpecServer = new ClusterSpecGeneratorServer(numTotalContainers);
+    ClusterSpecGeneratorServer clusterSpecServer = new ClusterSpecGeneratorServer(
+        appAttemptID.getApplicationId().toString(), numTotalContainers);
     LOG.info("Starting ClusterSpecGeneratorServer");
     int port = 2222;
     while (true) {

@@ -44,13 +44,11 @@ public class TestYarnTF extends TestCluster {
     String mainPath = classLoader.getResource("create_cluster_server.py").getPath();
     String[] args = {
         "--" + AM_JAR, APPMASTER_JAR,
-        "--" + AM_MEMORY, "256",
-        "--" + AM_VCORES, "1",
+        "--" + WORKERS, "4",
+        "--" + PSES, "1",
         "--" + MEMORY, "256",
         "--" + VCORES, "1",
         "--" + MAIN, mainPath,
-        "--" + WORKERS, "4",
-        "--" + PSES, "1",
         "--" + ARGS, "--images mnist/tfr/train --format tfr --mode train --model mnist_model"
     };
     

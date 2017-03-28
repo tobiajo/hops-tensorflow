@@ -41,10 +41,12 @@ public class ClusterSpecGeneratorServer {
   
   private static final Log LOG = LogFactory.getLog(ClusterSpecGeneratorServer.class);
   
+  private String applicationId;
   private int numContainers;
   private Server server;
   
-  public ClusterSpecGeneratorServer(int numContainers) {
+  public ClusterSpecGeneratorServer(String applicationId, int numContainers) {
+    this.applicationId = applicationId;
     this.numContainers = numContainers;
   }
   
@@ -53,7 +55,7 @@ public class ClusterSpecGeneratorServer {
       throw new IllegalStateException("Already started");
     }
     server = ServerBuilder.forPort(port)
-        .addService(new ClusterSpecGeneratorImpl(numContainers))
+        .addService(new ClusterSpecGeneratorImpl())
         .build()
         .start();
     LOG.info("Server started, listening on " + port);
@@ -81,39 +83,34 @@ public class ClusterSpecGeneratorServer {
   }
   
   public static void main(String[] args) throws IOException, InterruptedException {
-    ClusterSpecGeneratorServer server = new ClusterSpecGeneratorServer(3);
+    ClusterSpecGeneratorServer server = new ClusterSpecGeneratorServer("(appId)", 3);
     server.start(50051);
     server.blockUntilShutdown();
   }
   
-  private static class ClusterSpecGeneratorImpl extends ClusterSpecGeneratorGrpc.ClusterSpecGeneratorImplBase {
+  private class ClusterSpecGeneratorImpl extends ClusterSpecGeneratorGrpc.ClusterSpecGeneratorImplBase {
     
-    int numContainers;
-    Map<String, Container> clusterSpec;
-    
-    ClusterSpecGeneratorImpl(int numContainers) {
-      this.numContainers = numContainers;
-      clusterSpec = new ConcurrentHashMap<>();
-    }
+    Map<String, Container> clusterSpec = new ConcurrentHashMap<>();
     
     @Override
     public void registerContainer(RegisterContainerRequest request,
         StreamObserver<RegisterContainerReply> responseObserver) {
-      // TODO: check applicationID ?
       Container container = request.getContainer();
-      LOG.debug("Received registerContainerRequest from: " + container.getJobName() + container.getTaskIndex());
-      clusterSpec.put(container.getJobName() + container.getTaskIndex(), container);
-      if (clusterSpec.size() > numContainers) {
-        throw new IllegalStateException("clusterSpec size: " + clusterSpec.size());
+      LOG.info("Received registerContainerRequest: (" + container.getApplicationId() + ", " + container.getIp()
+          + ", " + container.getPort() + ", " + container.getJobName() + ", " + container.getTaskIndex() + ")");
+      if (container.getApplicationId().equals(applicationId)) {
+        clusterSpec.put(container.getJobName() + container.getTaskIndex(), container);
+        if (clusterSpec.size() > numContainers) {
+          throw new IllegalStateException("clusterSpec size: " + clusterSpec.size());
+        }
+        RegisterContainerReply reply = RegisterContainerReply.newBuilder().build();
+        responseObserver.onNext(reply);
+        responseObserver.onCompleted();
       }
-      RegisterContainerReply reply = RegisterContainerReply.newBuilder().build();
-      responseObserver.onNext(reply);
-      responseObserver.onCompleted();
     }
     
     @Override
     public void getClusterSpec(GetClusterSpecRequest request, StreamObserver<GetClusterSpecReply> responseObserver) {
-      // TODO: check applicationID ?
       LOG.debug("Received getClusterSpecRequest");
       GetClusterSpecReply reply;
       if (clusterSpec.size() == numContainers) {

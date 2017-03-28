@@ -255,7 +255,7 @@ public class Client {
     name = cliParser.getOptionValue(NAME);
     amPriority = Integer.parseInt(cliParser.getOptionValue(AM_PRIORITY, "0"));
     amQueue = cliParser.getOptionValue(QUEUE, "default");
-    amMemory = Integer.parseInt(cliParser.getOptionValue(AM_MEMORY, "10"));
+    amMemory = Integer.parseInt(cliParser.getOptionValue(AM_MEMORY, "192"));
     amVCores = Integer.parseInt(cliParser.getOptionValue(AM_VCORES, "1"));
     
     if (amMemory < 0) {
@@ -299,7 +299,7 @@ public class Client {
     }
     priority = Integer.parseInt(cliParser.getOptionValue(PRIORITY, "0"));
     
-    memory = Integer.parseInt(cliParser.getOptionValue(MEMORY, "10"));
+    memory = Integer.parseInt(cliParser.getOptionValue(MEMORY, "1024"));
     vcores = Integer.parseInt(cliParser.getOptionValue(VCORES, "1"));
     numWorkers = Integer.parseInt(cliParser.getOptionValue(WORKERS, "1"));
     numPses = Integer.parseInt(cliParser.getOptionValue(PSES, "1"));
