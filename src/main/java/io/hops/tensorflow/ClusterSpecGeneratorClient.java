@@ -69,8 +69,8 @@ public class ClusterSpecGeneratorClient {
     return true;
   }
   
-  public ImmutableList<Container> getClusterSpec() {
-    GetClusterSpecRequest request = GetClusterSpecRequest.newBuilder().build();
+  public ImmutableList<Container> getClusterSpec(String applicationId) {
+    GetClusterSpecRequest request = GetClusterSpecRequest.newBuilder().setApplicationId(applicationId).build();
     GetClusterSpecReply reply;
     try {
       reply = blockingStub.getClusterSpec(request);

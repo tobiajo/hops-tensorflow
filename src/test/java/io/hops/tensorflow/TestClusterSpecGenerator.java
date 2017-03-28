@@ -59,9 +59,9 @@ public class TestClusterSpecGenerator {
   public void ClusterSpecGenTest() {
     Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "ps", 0));
     Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "ps", 0));
-    Assert.assertEquals(0, client.getClusterSpec().size());
+    Assert.assertEquals(0, client.getClusterSpec("(appId)").size());
     Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "worker", 0));
     Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "worker", 1));
-    Assert.assertEquals(NUM_CONTAINERS, client.getClusterSpec().size());
+    Assert.assertEquals(NUM_CONTAINERS, client.getClusterSpec("(appId)").size());
   }
 }

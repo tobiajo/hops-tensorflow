@@ -84,7 +84,7 @@ public class ClusterSpecGeneratorServer {
   
   public static void main(String[] args) throws IOException, InterruptedException {
     ClusterSpecGeneratorServer server = new ClusterSpecGeneratorServer("(appId)", 3);
-    server.start(50051);
+    server.start(50052);
     server.blockUntilShutdown();
   }
   
@@ -111,22 +111,24 @@ public class ClusterSpecGeneratorServer {
     
     @Override
     public void getClusterSpec(GetClusterSpecRequest request, StreamObserver<GetClusterSpecReply> responseObserver) {
-      LOG.debug("Received getClusterSpecRequest");
-      GetClusterSpecReply reply;
-      if (clusterSpec.size() == numContainers) {
-        List<Container> clusterSpecList = new ArrayList<>(clusterSpec.values());
-        Collections.sort(clusterSpecList, new Comparator<Container>() {
-          @Override
-          public int compare(Container c1, Container c2) {
-            return (c1.getTaskIndex() < c2.getTaskIndex() ? -1 : (c1.getTaskIndex() == c2.getTaskIndex() ? 0 : 1));
-          }
-        });
-        reply = GetClusterSpecReply.newBuilder().addAllClusterSpec(clusterSpecList).build();
-      } else {
-        reply = GetClusterSpecReply.newBuilder().build();
+      LOG.info("Received getClusterSpecRequest: " + request.getApplicationId());
+      if (request.getApplicationId().equals(applicationId)) {
+        GetClusterSpecReply reply;
+        if (clusterSpec.size() == numContainers) {
+          List<Container> clusterSpecList = new ArrayList<>(clusterSpec.values());
+          Collections.sort(clusterSpecList, new Comparator<Container>() {
+            @Override
+            public int compare(Container c1, Container c2) {
+              return (c1.getTaskIndex() < c2.getTaskIndex() ? -1 : (c1.getTaskIndex() == c2.getTaskIndex() ? 0 : 1));
+            }
+          });
+          reply = GetClusterSpecReply.newBuilder().addAllClusterSpec(clusterSpecList).build();
+        } else {
+          reply = GetClusterSpecReply.newBuilder().build();
+        }
+        responseObserver.onNext(reply);
+        responseObserver.onCompleted();
       }
-      responseObserver.onNext(reply);
-      responseObserver.onCompleted();
     }
   }
 }

@@ -52,11 +52,11 @@ public class TestYarnTF extends TestCluster {
         "--" + ARGS, "--images mnist/tfr/train --format tfr --mode train --model mnist_model"
     };
     
-    LOG.info("Initializing yarnTF Client");
+    LOG.info("Initializing yarntf Client");
     final Client client = new Client(new Configuration(yarnCluster.getConfig()));
     boolean initSuccess = client.init(args);
     Assert.assertTrue(initSuccess);
-    LOG.info("Running yarnTF Client");
+    LOG.info("Running yarntf Client");
     final ApplicationId appId = client.submitApplication();
     
     boolean result = client.monitorApplication(appId);

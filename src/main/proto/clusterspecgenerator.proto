@@ -29,7 +29,7 @@ message RegisterContainerReply {
 }
 
 message GetClusterSpecRequest {
-
+    string applicationId = 1;
 }
 
 message GetClusterSpecReply {
