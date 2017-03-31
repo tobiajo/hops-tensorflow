@@ -647,14 +647,15 @@ public class ApplicationMaster {
       envCopy.put("TASK_INDEX", Integer.toString(taskIndex));
       
       // Set the executable command for the allocated container
-      Vector<CharSequence> vargs = new Vector<>(5);
+      Vector<CharSequence> vargs = new Vector<>(15);
+      
+      vargs.add("ulimit -v " + 1024 * containerMemory + " &&");
       
       // https://www.tensorflow.org/deploy/hadoop
       vargs.add("LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/jre/lib/amd64/server");
       vargs.add("CLASSPATH=$($HADOOP_HDFS_HOME/bin/hadoop classpath --glob)");
       
-      vargs.add("python " + mainRelative);
-      vargs.add(StringUtils.join(arguments, " "));
+      vargs.add("python " + mainRelative + " " + StringUtils.join(arguments, " "));
       
       // Add log redirect params
       vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
