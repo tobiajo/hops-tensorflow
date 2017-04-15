@@ -29,6 +29,7 @@ public abstract class CommonArguments {
   
   public static final String MEMORY = "memory";
   public static final String VCORES = "vcores";
+  public static final String GPUS = "gpus";
   public static final String PRIORITY = "priority";
   
   public static final String DEBUG = "debug";
@@ -43,8 +44,9 @@ public abstract class CommonArguments {
     opts.addOption(PSES, true, "Number of parameter servers");
     opts.addOption(ENV, true, "Environment for Python application. Specified as env_key=env_val pairs");
     
-    opts.addOption(MEMORY, true, "Amount of memory in MB to be requested to run the Python application");
-    opts.addOption(VCORES, true, "Amount of virtual cores to be requested to run the Python application");
+    opts.addOption(MEMORY, true, "Amount of memory in MB to be requested to run the TF application");
+    opts.addOption(VCORES, true, "Amount of virtual cores to be requested to run the TF application");
+    opts.addOption(GPUS, true, "Amount of GPUs for each TF application container");
     opts.addOption(PRIORITY, true, "Priority for the Python application containers");
     
     opts.addOption(DEBUG, false, "Dump out debug information");

@@ -102,6 +102,7 @@ import static io.hops.tensorflow.ClientArguments.VCORES;
 import static io.hops.tensorflow.ClientArguments.VIEW_ACLS;
 import static io.hops.tensorflow.ClientArguments.WORKERS;
 import static io.hops.tensorflow.ClientArguments.createOptions;
+import static io.hops.tensorflow.CommonArguments.GPUS;
 
 public class Client {
   
@@ -129,6 +130,7 @@ public class Client {
   private int numPses;
   private int memory;
   private int vcores;
+  private int gpus;
   private Map<String, String> environment = new HashMap<>(); // environment variables
   
   private String nodeLabelExpression;
@@ -301,14 +303,16 @@ public class Client {
     
     memory = Integer.parseInt(cliParser.getOptionValue(MEMORY, "1024"));
     vcores = Integer.parseInt(cliParser.getOptionValue(VCORES, "1"));
+    gpus = Integer.parseInt(cliParser.getOptionValue(VCORES, "0"));
     numWorkers = Integer.parseInt(cliParser.getOptionValue(WORKERS, "1"));
     numPses = Integer.parseInt(cliParser.getOptionValue(PSES, "1"));
     
-    if (memory < 0 || vcores < 0 || numWorkers < 1 || numPses < 1) {
-      throw new IllegalArgumentException("Invalid no. of containers or container memory/vcores specified,"
+    if (memory < 0 || vcores < 0 || gpus < 0 || numWorkers < 1 || numPses < 1) {
+      throw new IllegalArgumentException("Invalid no. of containers or container memory/vcores/gpus specified,"
           + " exiting."
           + " Specified memory=" + memory
           + ", vcores=" + vcores
+          + ", gpus=" + gpus
           + ", numWorkers=" + numWorkers
           + ", numPses=" + numPses);
     }
@@ -559,6 +563,7 @@ public class Client {
     
     vargs.add(newArg(MEMORY, String.valueOf(memory)));
     vargs.add(newArg(VCORES, String.valueOf(vcores)));
+    vargs.add(newArg(GPUS, String.valueOf(gpus)));
     vargs.add(newArg(PRIORITY, String.valueOf(priority)));
     
     vargs.add(newArg(ApplicationMasterArguments.MAIN_RELATIVE, mainRelativePath));
@@ -572,7 +577,7 @@ public class Client {
       vargs.add(newArg(ENV, entry.getKey() + "=" + entry.getValue()));
     }
     if (debugFlag) {
-      vargs.add("--debug");
+      vargs.add("--" + DEBUG);
     }
     
     // Add log redirect params

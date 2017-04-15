@@ -88,6 +88,7 @@ import static io.hops.tensorflow.ApplicationMasterArguments.VCORES;
 import static io.hops.tensorflow.ApplicationMasterArguments.WORKERS;
 import static io.hops.tensorflow.ApplicationMasterArguments.createOptions;
 import static io.hops.tensorflow.CommonArguments.ARGS;
+import static io.hops.tensorflow.CommonArguments.GPUS;
 import static io.hops.tensorflow.Constants.LOG4J_PATH;
 
 public class ApplicationMaster {
@@ -126,6 +127,7 @@ public class ApplicationMaster {
   private int numTotalContainers;
   private int containerMemory;
   private int containerVirtualCores;
+  private int containerGPUs;
   private int requestPriority;
   
   // Counters for containers
@@ -291,6 +293,7 @@ public class ApplicationMaster {
     
     containerMemory = Integer.parseInt(cliParser.getOptionValue(MEMORY, "1024"));
     containerVirtualCores = Integer.parseInt(cliParser.getOptionValue(VCORES, "1"));
+    containerGPUs = Integer.parseInt(cliParser.getOptionValue(GPUS, "0"));
     
     numWorkers = Integer.parseInt(cliParser.getOptionValue(WORKERS, "1"));
     numPses = Integer.parseInt(cliParser.getOptionValue(PSES, "1"));
@@ -456,9 +459,8 @@ public class ApplicationMaster {
     Priority pri = Priority.newInstance(requestPriority);
     
     // Set up resource type requirements
-    // For now, memory and CPU are supported so we set memory and cpu requirements
-    Resource capability = Resource.newInstance(containerMemory,
-        containerVirtualCores);
+    Resource capability = Resource.newInstance(containerMemory, containerVirtualCores);
+    capability.setGPUs(containerGPUs);
     
     ContainerRequest request = new ContainerRequest(capability, null, null, pri);
     LOG.info("Requested container ask: " + request.toString());
@@ -650,7 +652,14 @@ public class ApplicationMaster {
       Vector<CharSequence> vargs = new Vector<>(15);
       
       // https://www.tensorflow.org/deploy/hadoop
-      vargs.add("LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/jre/lib/amd64/server");
+      // https://www.tensorflow.org/install/install_linux
+      if (containerGPUs < 1) {
+        vargs.add("LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/jre/lib/amd64/server");
+      } else {
+        vargs.add("CUDA_HOME=/usr/local/cuda");
+        vargs.add("LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_HOME/lib64");
+        vargs.add("PATH=$PATH:$CUDA_HOME/bin");
+      }
       vargs.add("CLASSPATH=$($HADOOP_HDFS_HOME/bin/hadoop classpath --glob)");
       
       vargs.add("python " + mainRelative);
