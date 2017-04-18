@@ -57,11 +57,11 @@ public class TestClusterSpecGenerator {
   
   @Test
   public void ClusterSpecGenTest() {
-    Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "ps", 0));
-    Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "ps", 0));
+    Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "ps", 0, 1024));
+    Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "ps", 0, 1024));
     Assert.assertEquals(0, client.getClusterSpec("(appId)").size());
-    Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "worker", 0));
-    Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "worker", 1));
+    Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "worker", 0, 2024));
+    Assert.assertTrue(client.registerContainer("(appId)", "(ip)", 1024, "worker", 1, 2024));
     Assert.assertEquals(NUM_CONTAINERS, client.getClusterSpec("(appId)").size());
   }
 }

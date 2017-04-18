@@ -97,7 +97,8 @@ public class ClusterSpecGeneratorServer {
         StreamObserver<RegisterContainerReply> responseObserver) {
       Container container = request.getContainer();
       LOG.info("Received registerContainerRequest: (" + container.getApplicationId() + ", " + container.getIp()
-          + ", " + container.getPort() + ", " + container.getJobName() + ", " + container.getTaskIndex() + ")");
+          + ", " + container.getPort() + ", " + container.getJobName() + ", " + container.getTaskIndex() +  ", " +
+          container.getTbPort() + ")");
       if (container.getApplicationId().equals(applicationId)) {
         clusterSpec.put(container.getJobName() + container.getTaskIndex(), container);
         if (clusterSpec.size() > numContainers) {
