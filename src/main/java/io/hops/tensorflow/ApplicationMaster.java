@@ -95,16 +95,21 @@ public class ApplicationMaster {
   
   private static final Log LOG = LogFactory.getLog(ApplicationMaster.class);
   
-  public enum YarnTFEvent {
+  public enum YarntfEvent {
     YARNTF_APP_ATTEMPT_START,
     YARNTF_APP_ATTEMPT_END,
     YARNTF_CONTAINER_START,
     YARNTF_CONTAINER_END
   }
   
-  public enum YarnTFEntity {
+  public enum YarntfEntity {
     YARNTF_APP_ATTEMPT,
     YARNTF_CONTAINER
+  }
+  
+  public enum YarntfTask {
+    YARNTF_WORKER,
+    YARNTF_PS
   }
   
   // Configuration
@@ -396,7 +401,7 @@ public class ApplicationMaster {
     timelineHandler = new TimelineHandler(appAttemptID.toString(), domainId, appSubmitterUgi);
     timelineHandler.startClient(conf);
     if (timelineHandler.isClientNotNull()) {
-      timelineHandler.publishApplicationAttemptEvent(YarnTFEvent.YARNTF_APP_ATTEMPT_START);
+      timelineHandler.publishApplicationAttemptEvent(YarntfEvent.YARNTF_APP_ATTEMPT_START);
     }
     
     // Register self with ResourceManager
@@ -533,6 +538,10 @@ public class ApplicationMaster {
     return numPses;
   }
   
+  public int getContainerGPUs() {
+    return containerGPUs;
+  }
+  
   /**
    * Dump out contents of $CWD and the environment to stdout for debugging
    */
@@ -582,7 +591,7 @@ public class ApplicationMaster {
     }
     
     if (timelineHandler.isClientNotNull()) {
-      timelineHandler.publishApplicationAttemptEvent(YarnTFEvent.YARNTF_APP_ATTEMPT_END);
+      timelineHandler.publishApplicationAttemptEvent(YarntfEvent.YARNTF_APP_ATTEMPT_END);
     }
     
     // Join all launched threads
