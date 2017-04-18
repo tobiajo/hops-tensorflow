@@ -445,6 +445,7 @@ public class ApplicationMaster {
     
     // Stop eventual containers from previous attempts
     for (Container prevContainer : previousAMRunningContainers) {
+      LOG.info("Releasing YARN container " + prevContainer.getId());
       nmWrapper.getClient().stopContainerAsync(prevContainer.getId(), prevContainer.getNodeId());
     }
   
