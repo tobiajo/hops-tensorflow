@@ -315,7 +315,8 @@ public class Client {
     numWorkers = Integer.parseInt(cliParser.getOptionValue(WORKERS, "1"));
     numPses = Integer.parseInt(cliParser.getOptionValue(PSES, "1"));
     
-    if (memory < 0 || vcores < 0 || gpus < 0 || numWorkers < 1 || numPses < 1) {
+    if (!(memory > 0 && vcores > 0 && gpus > -1 &&
+        ((numWorkers > 0 && numPses > 0) || (numWorkers == 1 && numPses == 0)))) {
       throw new IllegalArgumentException("Invalid no. of containers or container memory/vcores/gpus specified,"
           + " exiting."
           + " Specified memory=" + memory

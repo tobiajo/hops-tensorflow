@@ -313,8 +313,8 @@ public class ApplicationMaster {
     numWorkers = Integer.parseInt(cliParser.getOptionValue(WORKERS, "1"));
     numPses = Integer.parseInt(cliParser.getOptionValue(PSES, "1"));
     numTotalContainers = numWorkers + numPses;
-    if (numWorkers < 1 || numPses < 1) {
-      throw new IllegalArgumentException("Need at least 1 worker and 1 parameter server");
+    if (!(numWorkers > 0 && numPses > 0  || numWorkers == 1 && numPses == 0)) {
+      throw new IllegalArgumentException("Invalid no. of workers or parameter server");
     }
     requestPriority = Integer.parseInt(cliParser.getOptionValue(PRIORITY, "0"));
     
