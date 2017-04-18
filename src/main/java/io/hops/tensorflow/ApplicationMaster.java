@@ -410,6 +410,9 @@ public class ApplicationMaster {
     
     int maxVCores = response.getMaximumResourceCapability().getVirtualCores();
     LOG.info("Max vcores capabililty of resources in this cluster " + maxVCores);
+  
+    int maxGPUS = response.getMaximumResourceCapability().getGPUs();
+    LOG.info("Max gpus capabililty of resources in this cluster " + maxGPUS);
     
     // A resource ask cannot exceed the max.
     if (containerMemory > maxMem) {
@@ -423,19 +426,38 @@ public class ApplicationMaster {
           + " Using max value." + ", specified=" + containerVirtualCores + ", max=" + maxVCores);
       containerVirtualCores = maxVCores;
     }
-    
-    List<Container> previousAMRunningContainers = response.getContainersFromPreviousAttempts();
-    LOG.info(appAttemptID + " received " + previousAMRunningContainers.size()
-        + " previous attempts' running containers on AM registration.");
-    numAllocatedContainers.addAndGet(previousAMRunningContainers.size());
+  
+    if (containerGPUs > maxGPUS) {
+      LOG.info("Container gpus specified above max threshold of cluster."
+          + " Using max value." + ", specified=" + containerGPUs + ", max=" + maxGPUS);
+      containerGPUs = maxGPUS;
+    }
+  
+    // TODO: how to handle previous running containers?
+    // List<Container> previousAMRunningContainers = response.getContainersFromPreviousAttempts();
+    // LOG.info(appAttemptID + " received " + previousAMRunningContainers.size()
+    //     + " previous attempts' running containers on AM registration.");
+    // numAllocatedContainers.addAndGet(previousAMRunningContainers.size());
     
     // Send request for containers to RM
-    int numTotalContainersToRequest = numTotalContainers - previousAMRunningContainers.size();
-    for (int i = 0; i < numTotalContainersToRequest; ++i) {
-      ContainerRequest containerAsk = setupContainerAskForRM();
+    // int numTotalContainersToRequest = numTotalContainers - previousAMRunningContainers.size();
+    // for (int i = 0; i < numTotalContainersToRequest; ++i) {
+    //   ContainerRequest containerAsk = setupContainerAskForRM();
+    //   rmWrapper.getClient().addContainerRequest(containerAsk);
+    // }
+    // numRequestedContainers.set(numTotalContainers);
+    
+    for (int i = 0; i < numWorkers; i++) {
+      ContainerRequest containerAsk = setupContainerAskForRM(true);
       rmWrapper.getClient().addContainerRequest(containerAsk);
     }
-    numRequestedContainers.set(numTotalContainers);
+    numRequestedContainers.addAndGet(numWorkers);
+  
+    for (int i = 0; i < numPses; i++) {
+      ContainerRequest containerAsk = setupContainerAskForRM(false);
+      rmWrapper.getClient().addContainerRequest(containerAsk);
+    }
+    numRequestedContainers.addAndGet(numPses);
   }
   
   public void setDone() {
@@ -455,12 +477,14 @@ public class ApplicationMaster {
    *
    * @return the setup ResourceRequest to be sent to RM
    */
-  public ContainerRequest setupContainerAskForRM() {
+  public ContainerRequest setupContainerAskForRM(boolean worker) {
     Priority pri = Priority.newInstance(requestPriority);
     
     // Set up resource type requirements
     Resource capability = Resource.newInstance(containerMemory, containerVirtualCores);
-    capability.setGPUs(containerGPUs);
+    if (worker) {
+      capability.setGPUs(containerGPUs);
+    }
     
     ContainerRequest request = new ContainerRequest(capability, null, null, pri);
     LOG.info("Requested container ask: " + request.toString());
@@ -653,7 +677,7 @@ public class ApplicationMaster {
       
       // https://www.tensorflow.org/deploy/hadoop
       // https://www.tensorflow.org/install/install_linux
-      if (containerGPUs < 1) {
+      if (jobName.equals("worker") && containerGPUs < 1) {
         vargs.add("LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/jre/lib/amd64/server");
       } else {
         vargs.add("CUDA_HOME=/usr/local/cuda");

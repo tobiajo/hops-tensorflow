@@ -303,7 +303,7 @@ public class Client {
     
     memory = Integer.parseInt(cliParser.getOptionValue(MEMORY, "1024"));
     vcores = Integer.parseInt(cliParser.getOptionValue(VCORES, "1"));
-    gpus = Integer.parseInt(cliParser.getOptionValue(VCORES, "0"));
+    gpus = Integer.parseInt(cliParser.getOptionValue(GPUS, "0"));
     numWorkers = Integer.parseInt(cliParser.getOptionValue(WORKERS, "1"));
     numPses = Integer.parseInt(cliParser.getOptionValue(PSES, "1"));
     

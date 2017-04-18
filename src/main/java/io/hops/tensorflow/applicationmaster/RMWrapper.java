@@ -103,16 +103,17 @@ public class RMWrapper {
         }
       }
       
+      // TODO: how to handle if container fail?
       // ask for more containers if any failed
-      int askCount = applicationMaster.getNumTotalContainers() - applicationMaster.getNumRequestedContainers().get();
-      applicationMaster.getNumRequestedContainers().addAndGet(askCount);
-      
-      if (askCount > 0) {
-        for (int i = 0; i < askCount; ++i) {
-          AMRMClient.ContainerRequest containerAsk = applicationMaster.setupContainerAskForRM();
-          client.addContainerRequest(containerAsk);
-        }
-      }
+      // int askCount = applicationMaster.getNumTotalContainers() - applicationMaster.getNumRequestedContainers().get();
+      // applicationMaster.getNumRequestedContainers().addAndGet(askCount);
+  
+      // if (askCount > 0) {
+      //   for (int i = 0; i < askCount; ++i) {
+      //     AMRMClient.ContainerRequest containerAsk = applicationMaster.setupContainerAskForRM();
+      //     client.addContainerRequest(containerAsk);
+      //   }
+      // }
       
       if (applicationMaster.getNumCompletedWorkers().get() == applicationMaster.getNumWorkers()) {
         applicationMaster.setDone();
