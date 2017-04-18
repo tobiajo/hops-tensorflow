@@ -90,6 +90,7 @@ import static io.hops.tensorflow.ClientArguments.HELP;
 import static io.hops.tensorflow.ClientArguments.KEEP_CONTAINERS_ACROSS_APPLICATION_ATTEMPTS;
 import static io.hops.tensorflow.ClientArguments.LOG_PROPERTIES;
 import static io.hops.tensorflow.ClientArguments.MAIN;
+import static io.hops.tensorflow.ClientArguments.MAX_APP_ATTEMPTS;
 import static io.hops.tensorflow.ClientArguments.MEMORY;
 import static io.hops.tensorflow.ClientArguments.MODIFY_ACLS;
 import static io.hops.tensorflow.ClientArguments.NAME;
@@ -140,6 +141,7 @@ public class Client {
   private final long clientStartTime = System.currentTimeMillis();
   private long clientTimeout;
   
+  private int maxAppAttempts;
   private boolean keepContainers; // keep containers across application attempts.
   private long attemptFailuresValidityInterval;
   
@@ -248,6 +250,8 @@ public class Client {
       debugFlag = true;
       
     }
+    
+    maxAppAttempts = Integer.parseInt(cliParser.getOptionValue(MAX_APP_ATTEMPTS, "1"));
     
     if (cliParser.hasOption(KEEP_CONTAINERS_ACROSS_APPLICATION_ATTEMPTS)) {
       LOG.info(KEEP_CONTAINERS_ACROSS_APPLICATION_ATTEMPTS);
@@ -775,10 +779,9 @@ public class Client {
     }
     appContext.setApplicationType("YARNTF");
     
+    appContext.setMaxAppAttempts(maxAppAttempts);
     appContext.setKeepContainersAcrossApplicationAttempts(keepContainers);
-    if (attemptFailuresValidityInterval >= 0) {
-      appContext.setAttemptFailuresValidityInterval(attemptFailuresValidityInterval);
-    }
+    appContext.setAttemptFailuresValidityInterval(attemptFailuresValidityInterval);
     
     if (null != nodeLabelExpression) {
       appContext.setNodeLabelExpression(nodeLabelExpression);

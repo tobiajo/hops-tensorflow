@@ -22,12 +22,10 @@ import io.hops.tensorflow.ApplicationMaster.YarntfTask;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.api.records.Container;
-import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerState;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.NodeReport;
-import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 
 import java.util.Collections;
@@ -76,45 +74,23 @@ public class RMWrapper {
         int exitStatus = containerStatus.getExitStatus();
         if (0 != exitStatus) {
           // container failed
-          if (ContainerExitStatus.ABORTED != exitStatus) {
-            // application failed, counts as completed
-            applicationMaster.getNumCompletedContainers().incrementAndGet();
-            if (workerIds.contains(containerStatus.getContainerId())) {
-              applicationMaster.getNumCompletedWorkers().incrementAndGet();
-            }
-            applicationMaster.getNumFailedContainers().incrementAndGet();
-          } else {
-            // container was killed by framework, possibly preempted
-            // we should re-try as the container was lost for some reason
-            applicationMaster.getNumAllocatedContainers().decrementAndGet();
-            applicationMaster.getNumRequestedContainers().decrementAndGet();
-            // we do not need to release the container as it would be done by the RM
+          applicationMaster.getNumCompletedContainers().incrementAndGet();
+          if (workerIds.contains(containerStatus.getContainerId())) {
+            applicationMaster.getNumCompletedWorkers().incrementAndGet();
           }
+          applicationMaster.getNumFailedContainers().incrementAndGet();
         } else {
           // nothing to do, container completed successfully
           applicationMaster.getNumCompletedContainers().incrementAndGet();
           if (workerIds.contains(containerStatus.getContainerId())) {
             applicationMaster.getNumCompletedWorkers().incrementAndGet();
           }
-          LOG.info("Container completed successfully." + ", containerId="
-              + containerStatus.getContainerId());
+          LOG.info("Container completed successfully." + ", containerId=" + containerStatus.getContainerId());
         }
         if (applicationMaster.getTimelineHandler().isClientNotNull()) {
           applicationMaster.getTimelineHandler().publishContainerEndEvent(containerStatus);
         }
       }
-      
-      // TODO: how to handle if container fail?
-      // ask for more containers if any failed
-      // int askCount = applicationMaster.getNumTotalContainers() - applicationMaster.getNumRequestedContainers().get();
-      // applicationMaster.getNumRequestedContainers().addAndGet(askCount);
-  
-      // if (askCount > 0) {
-      //   for (int i = 0; i < askCount; ++i) {
-      //     AMRMClient.ContainerRequest containerAsk = applicationMaster.setupContainerAskForRM();
-      //     client.addContainerRequest(containerAsk);
-      //   }
-      // }
       
       if (applicationMaster.getNumCompletedWorkers().get() == applicationMaster.getNumWorkers()) {
         applicationMaster.setDone();
@@ -210,8 +186,7 @@ public class RMWrapper {
     @Override
     public float getProgress() {
       // set progress to deliver to RM on next heartbeat
-      float progress = (float) applicationMaster.getNumCompletedWorkers().get()
-          / applicationMaster.getNumWorkers();
+      float progress = (float) applicationMaster.getNumCompletedWorkers().get() / applicationMaster.getNumWorkers();
       return progress;
     }
     

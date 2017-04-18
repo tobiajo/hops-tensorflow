@@ -36,6 +36,7 @@ public class ClientArguments extends CommonArguments {
   public static final String TIMEOUT = "timeout";
   public static final String LOG_PROPERTIES = "log_properties";
   
+  public static final String MAX_APP_ATTEMPTS = "max_app_attempts";
   public static final String KEEP_CONTAINERS_ACROSS_APPLICATION_ATTEMPTS =
       "keep_containers_across_application_attempts";
   public static final String ATTEMPT_FAILURES_VALIDITY_INTERVAL = "attempt_failures_validity_interval";
@@ -64,6 +65,7 @@ public class ClientArguments extends CommonArguments {
     opts.addOption(TIMEOUT, true, "Application timeout in milliseconds");
     opts.addOption(LOG_PROPERTIES, true, "log4j.properties file");
     
+    opts.addOption(MAX_APP_ATTEMPTS, true, "Number of max attempts of the application to be submitted");
     opts.addOption(KEEP_CONTAINERS_ACROSS_APPLICATION_ATTEMPTS, false,
         "Flag to indicate whether to keep containers across application attempts." +
             " If the flag is true, running containers will not be killed when" +

@@ -438,26 +438,22 @@ public class ApplicationMaster {
       containerGPUs = maxGPUS;
     }
   
-    // TODO: how to handle previous running containers?
-    // List<Container> previousAMRunningContainers = response.getContainersFromPreviousAttempts();
-    // LOG.info(appAttemptID + " received " + previousAMRunningContainers.size()
-    //     + " previous attempts' running containers on AM registration.");
-    // numAllocatedContainers.addAndGet(previousAMRunningContainers.size());
+    List<Container> previousAMRunningContainers = response.getContainersFromPreviousAttempts();
+    LOG.info(appAttemptID + " received " + previousAMRunningContainers.size()
+         + " previous attempts' running containers on AM registration.");
+    numAllocatedContainers.addAndGet(previousAMRunningContainers.size());
     
+    // Stop eventual containers from previous attempts
+    for (Container prevContainer : previousAMRunningContainers) {
+      nmWrapper.getClient().stopContainerAsync(prevContainer.getId(), prevContainer.getNodeId());
+    }
+  
     // Send request for containers to RM
-    // int numTotalContainersToRequest = numTotalContainers - previousAMRunningContainers.size();
-    // for (int i = 0; i < numTotalContainersToRequest; ++i) {
-    //   ContainerRequest containerAsk = setupContainerAskForRM();
-    //   rmWrapper.getClient().addContainerRequest(containerAsk);
-    // }
-    // numRequestedContainers.set(numTotalContainers);
-    
     for (int i = 0; i < numWorkers; i++) {
       ContainerRequest containerAsk = setupContainerAskForRM(true);
       rmWrapper.getClient().addContainerRequest(containerAsk);
     }
     numRequestedContainers.addAndGet(numWorkers);
-  
     for (int i = 0; i < numPses; i++) {
       ContainerRequest containerAsk = setupContainerAskForRM(false);
       rmWrapper.getClient().addContainerRequest(containerAsk);
