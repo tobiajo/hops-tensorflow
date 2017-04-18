@@ -698,8 +698,11 @@ public class ApplicationMaster {
       Map<String, String> envCopy = new HashMap<>(environment);
       envCopy.put("JOB_NAME", jobName);
       envCopy.put("TASK_INDEX", Integer.toString(taskIndex));
-      if (tensorboard && jobName.equals("worker")) {
+      if (jobName.equals("worker")) {
         envCopy.put("TB_DIR", "tensorboard_" + taskIndex);
+        if (tensorboard) {
+          envCopy.put("TENSORBOARD", "true");
+        }
       }
       
       // Set the executable command for the allocated container
