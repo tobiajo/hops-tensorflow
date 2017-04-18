@@ -71,22 +71,20 @@ public class RMWrapper {
         assert (containerStatus.getState() == ContainerState.COMPLETE);
         
         // increment counters for completed/failed containers
+        applicationMaster.getNumCompletedContainers().incrementAndGet();
+        if (workerIds.contains(containerStatus.getContainerId())) {
+          applicationMaster.getNumCompletedWorkers().incrementAndGet();
+        }
         int exitStatus = containerStatus.getExitStatus();
         if (0 != exitStatus) {
           // container failed
-          applicationMaster.getNumCompletedContainers().incrementAndGet();
-          if (workerIds.contains(containerStatus.getContainerId())) {
-            applicationMaster.getNumCompletedWorkers().incrementAndGet();
-          }
           applicationMaster.getNumFailedContainers().incrementAndGet();
+          LOG.info("Container failed." + ", containerId=" + containerStatus.getContainerId());
         } else {
           // nothing to do, container completed successfully
-          applicationMaster.getNumCompletedContainers().incrementAndGet();
-          if (workerIds.contains(containerStatus.getContainerId())) {
-            applicationMaster.getNumCompletedWorkers().incrementAndGet();
-          }
           LOG.info("Container completed successfully." + ", containerId=" + containerStatus.getContainerId());
         }
+        
         if (applicationMaster.getTimelineHandler().isClientNotNull()) {
           applicationMaster.getTimelineHandler().publishContainerEndEvent(containerStatus);
         }
