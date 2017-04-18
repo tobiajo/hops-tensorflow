@@ -52,7 +52,6 @@ public class TestYarnTF extends TestCluster {
         "--" + VCORES, "1",
         "--" + MAIN, mainPath,
         "--" + ARGS, "--images mnist/tfr/train --format tfr --mode train --model mnist_model",
-        "--" + TENSORBOARD
     };
     
     LOG.info("Initializing yarntf Client");

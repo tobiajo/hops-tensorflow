@@ -18,9 +18,6 @@
 
 package io.hops.tensorflow;
 
-import io.hops.tensorflow.applicationmaster.NMWrapper;
-import io.hops.tensorflow.applicationmaster.RMWrapper;
-import io.hops.tensorflow.applicationmaster.TimelineHandler;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
@@ -164,6 +161,8 @@ public class ApplicationMaster {
   
   private CommandLine cliParser;
   
+  private ClusterSpecGeneratorServer clusterSpecServer;
+  
   /**
    * @param args
    *     Command line args
@@ -298,7 +297,7 @@ public class ApplicationMaster {
         environment.put(key, val);
       }
     }
-  
+    
     if (cliParser.hasOption(TENSORBOARD)) {
       tensorboard = true;
     }
@@ -366,8 +365,8 @@ public class ApplicationMaster {
     LOG.info("Starting ApplicationMaster. " +
         "Workers: " + numWorkers + ", Parameter servers: " + numPses);
     
-    ClusterSpecGeneratorServer clusterSpecServer = new ClusterSpecGeneratorServer(
-        appAttemptID.getApplicationId().toString(), numTotalContainers);
+    clusterSpecServer = new ClusterSpecGeneratorServer(
+        appAttemptID.getApplicationId().toString(), numTotalContainers, numWorkers);
     LOG.info("Starting ClusterSpecGeneratorServer");
     int port = 2222;
     while (true) {
@@ -506,49 +505,61 @@ public class ApplicationMaster {
     return request;
   }
   
+  /**
+   * Get a list of all TensorBoards on the format [ip:port].
+   *
+   * @return list of all TensorBoards, or null if not yet available
+   */
+  public List<String> getTensorBoardEndpoints() {
+    if (clusterSpecServer == null) {
+      return null;
+    }
+    return new ArrayList<>(clusterSpecServer.getTensorBoards().values());
+  }
+  
   // Getters for NM and RM wrappers
   
-  public TimelineHandler getTimelineHandler() {
+  TimelineHandler getTimelineHandler() {
     return timelineHandler;
   }
   
-  public AtomicInteger getNumCompletedContainers() {
+  AtomicInteger getNumCompletedContainers() {
     return numCompletedContainers;
   }
   
-  public AtomicInteger getNumCompletedWorkers() {
+  AtomicInteger getNumCompletedWorkers() {
     return numCompletedWorkers;
   }
   
-  public AtomicInteger getNumFailedContainers() {
+  AtomicInteger getNumFailedContainers() {
     return numFailedContainers;
   }
   
-  public ApplicationAttemptId getAppAttemptID() {
+  ApplicationAttemptId getAppAttemptID() {
     return appAttemptID;
   }
   
-  public AtomicInteger getNumAllocatedContainers() {
+  AtomicInteger getNumAllocatedContainers() {
     return numAllocatedContainers;
   }
   
-  public AtomicInteger getNumRequestedContainers() {
+  AtomicInteger getNumRequestedContainers() {
     return numRequestedContainers;
   }
   
-  public int getNumTotalContainers() {
+  int getNumTotalContainers() {
     return numTotalContainers;
   }
   
-  public int getNumWorkers() {
+  int getNumWorkers() {
     return numWorkers;
   }
   
-  public int getNumPses() {
+  int getNumPses() {
     return numPses;
   }
   
-  public int getContainerGPUs() {
+  int getContainerGPUs() {
     return containerGPUs;
   }
   

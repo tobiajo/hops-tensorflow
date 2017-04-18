@@ -15,9 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.hops.tensorflow.applicationmaster;
+package io.hops.tensorflow;
 
-import io.hops.tensorflow.ApplicationMaster;
 import io.hops.tensorflow.ApplicationMaster.YarntfTask;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
