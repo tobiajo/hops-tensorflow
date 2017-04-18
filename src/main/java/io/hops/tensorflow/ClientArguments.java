@@ -33,7 +33,7 @@ public class ClientArguments extends CommonArguments {
   public static final String AM_PRIORITY = "am_priority";
   
   public static final String QUEUE = "queue";
-  public static final String TIMEOUT = "timeout";
+  public static final String APPLICATION_TIMEOUT = "application_timeout";
   public static final String LOG_PROPERTIES = "log_properties";
   
   public static final String MAX_APP_ATTEMPTS = "max_app_attempts";
@@ -62,7 +62,7 @@ public class ClientArguments extends CommonArguments {
     opts.addOption(AM_PRIORITY, true, "Application Master Priority. Default 0");
     
     opts.addOption(QUEUE, true, "RM Queue in which this application is to be submitted");
-    opts.addOption(TIMEOUT, true, "Application timeout in milliseconds");
+    opts.addOption(APPLICATION_TIMEOUT, true, "Application timeout in seconds");
     opts.addOption(LOG_PROPERTIES, true, "log4j.properties file");
     
     opts.addOption(MAX_APP_ATTEMPTS, true, "Number of max attempts of the application to be submitted");

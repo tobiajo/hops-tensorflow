@@ -87,6 +87,7 @@ import static io.hops.tensorflow.ApplicationMasterArguments.PSES;
 import static io.hops.tensorflow.ApplicationMasterArguments.VCORES;
 import static io.hops.tensorflow.ApplicationMasterArguments.WORKERS;
 import static io.hops.tensorflow.ApplicationMasterArguments.createOptions;
+import static io.hops.tensorflow.CommonArguments.ALLOCATION_TIMEOUT;
 import static io.hops.tensorflow.CommonArguments.ARGS;
 import static io.hops.tensorflow.CommonArguments.GPUS;
 import static io.hops.tensorflow.Constants.LOG4J_PATH;
@@ -134,6 +135,10 @@ public class ApplicationMaster {
   private int containerVirtualCores;
   private int containerGPUs;
   private int requestPriority;
+  
+  // Timeout threshold for container allocation
+  private final long appMasterStartTime = System.currentTimeMillis();
+  private long allocationTimeout;
   
   // Counters for containers
   private AtomicInteger numCompletedContainers = new AtomicInteger();
@@ -308,6 +313,8 @@ public class ApplicationMaster {
     }
     requestPriority = Integer.parseInt(cliParser.getOptionValue(PRIORITY, "0"));
     
+    allocationTimeout = Long.parseLong(cliParser.getOptionValue(ALLOCATION_TIMEOUT, "15")) * 1000;
+    
     environment.put("WORKERS", Integer.toString(numWorkers));
     environment.put("PSES", Integer.toString(numPses));
     environment.put("HOME_DIRECTORY", FileSystem.get(conf).getHomeDirectory().toString());
@@ -415,7 +422,7 @@ public class ApplicationMaster {
     
     int maxVCores = response.getMaximumResourceCapability().getVirtualCores();
     LOG.info("Max vcores capabililty of resources in this cluster " + maxVCores);
-  
+    
     int maxGPUS = response.getMaximumResourceCapability().getGPUs();
     LOG.info("Max gpus capabililty of resources in this cluster " + maxGPUS);
     
@@ -431,24 +438,24 @@ public class ApplicationMaster {
           + " Using max value." + ", specified=" + containerVirtualCores + ", max=" + maxVCores);
       containerVirtualCores = maxVCores;
     }
-  
+    
     if (containerGPUs > maxGPUS) {
       LOG.info("Container gpus specified above max threshold of cluster."
           + " Using max value." + ", specified=" + containerGPUs + ", max=" + maxGPUS);
       containerGPUs = maxGPUS;
     }
-  
+    
     List<Container> previousAMRunningContainers = response.getContainersFromPreviousAttempts();
     LOG.info(appAttemptID + " received " + previousAMRunningContainers.size()
-         + " previous attempts' running containers on AM registration.");
+        + " previous attempts' running containers on AM registration.");
     numAllocatedContainers.addAndGet(previousAMRunningContainers.size());
     
     // Stop eventual containers from previous attempts
     for (Container prevContainer : previousAMRunningContainers) {
       LOG.info("Releasing YARN container " + prevContainer.getId());
-      nmWrapper.getClient().stopContainerAsync(prevContainer.getId(), prevContainer.getNodeId());
+      rmWrapper.getClient().releaseAssignedContainer(prevContainer.getId());
     }
-  
+    
     // Send request for containers to RM
     for (int i = 0; i < numWorkers; i++) {
       ContainerRequest containerAsk = setupContainerAskForRM(true);
@@ -581,6 +588,14 @@ public class ApplicationMaster {
   private boolean finish() {
     // wait for completion. finish if any container fails
     while (!done && !(numCompletedWorkers.get() == numWorkers) && !(numFailedContainers.get() > 0)) {
+      if (numAllocatedContainers.get() != numTotalContainers) {
+        long timeLeft = appMasterStartTime + allocationTimeout - System.currentTimeMillis();
+        LOG.info("Awaits container allocation, timeLeft=" + timeLeft);
+        if (timeLeft < 0) {
+          LOG.warn("Container allocation timeout. Finish application attempt");
+          break;
+        }
+      }
       try {
         Thread.sleep(200);
       } catch (InterruptedException ex) {

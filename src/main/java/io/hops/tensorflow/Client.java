@@ -98,11 +98,12 @@ import static io.hops.tensorflow.ClientArguments.NODE_LABEL_EXPRESSION;
 import static io.hops.tensorflow.ClientArguments.PRIORITY;
 import static io.hops.tensorflow.ClientArguments.PSES;
 import static io.hops.tensorflow.ClientArguments.QUEUE;
-import static io.hops.tensorflow.ClientArguments.TIMEOUT;
+import static io.hops.tensorflow.ClientArguments.APPLICATION_TIMEOUT;
 import static io.hops.tensorflow.ClientArguments.VCORES;
 import static io.hops.tensorflow.ClientArguments.VIEW_ACLS;
 import static io.hops.tensorflow.ClientArguments.WORKERS;
 import static io.hops.tensorflow.ClientArguments.createOptions;
+import static io.hops.tensorflow.CommonArguments.ALLOCATION_TIMEOUT;
 import static io.hops.tensorflow.CommonArguments.GPUS;
 
 public class Client {
@@ -123,6 +124,7 @@ public class Client {
   
   // TF application config
   private int priority;
+  private long allocationTimeout;
   private String name;
   private String mainPath;
   private String mainRelativePath; // relative for worker or ps
@@ -304,6 +306,7 @@ public class Client {
       }
     }
     priority = Integer.parseInt(cliParser.getOptionValue(PRIORITY, "0"));
+    allocationTimeout = Long.parseLong(cliParser.getOptionValue(ALLOCATION_TIMEOUT, "15")) * 1000;
     
     memory = Integer.parseInt(cliParser.getOptionValue(MEMORY, "1024"));
     vcores = Integer.parseInt(cliParser.getOptionValue(VCORES, "1"));
@@ -323,7 +326,7 @@ public class Client {
     
     nodeLabelExpression = cliParser.getOptionValue(NODE_LABEL_EXPRESSION, null);
     
-    clientTimeout = Integer.parseInt(cliParser.getOptionValue(TIMEOUT, "600000"));
+    clientTimeout = Long.parseLong(cliParser.getOptionValue(APPLICATION_TIMEOUT, "3600")) * 1000;
     
     attemptFailuresValidityInterval = Long.parseLong(
         cliParser.getOptionValue(ATTEMPT_FAILURES_VALIDITY_INTERVAL, "-1"));
@@ -569,6 +572,7 @@ public class Client {
     vargs.add(newArg(VCORES, String.valueOf(vcores)));
     vargs.add(newArg(GPUS, String.valueOf(gpus)));
     vargs.add(newArg(PRIORITY, String.valueOf(priority)));
+    vargs.add(newArg(ALLOCATION_TIMEOUT, String.valueOf(allocationTimeout / 1000)));
     
     vargs.add(newArg(ApplicationMasterArguments.MAIN_RELATIVE, mainRelativePath));
     if (arguments != null) {
