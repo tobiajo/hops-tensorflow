@@ -315,7 +315,7 @@ public class Client {
     numWorkers = Integer.parseInt(cliParser.getOptionValue(WORKERS, "1"));
     numPses = Integer.parseInt(cliParser.getOptionValue(PSES, "1"));
     
-    if (memory < 0 || vcores < 0 || gpus < 0 || numWorkers < 1 || numPses < 0) {
+    if (memory < 0 || vcores < 0 || gpus < 0 || numWorkers < 1 || numPses < 1) {
       throw new IllegalArgumentException("Invalid no. of containers or container memory/vcores/gpus specified,"
           + " exiting."
           + " Specified memory=" + memory
@@ -607,7 +607,7 @@ public class Client {
     }
     
     LOG.info("Completed setting up app master command " + command.toString());
-    List<String> commands = new ArrayList<String>();
+    List<String> commands = new ArrayList<>();
     commands.add(command.toString());
     
     // Set up the container launch context for the application master
