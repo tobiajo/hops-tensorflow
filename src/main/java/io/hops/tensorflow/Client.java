@@ -105,6 +105,7 @@ import static io.hops.tensorflow.ClientArguments.WORKERS;
 import static io.hops.tensorflow.ClientArguments.createOptions;
 import static io.hops.tensorflow.CommonArguments.ALLOCATION_TIMEOUT;
 import static io.hops.tensorflow.CommonArguments.GPUS;
+import static io.hops.tensorflow.CommonArguments.TENSORBOARD;
 
 public class Client {
   
@@ -135,6 +136,7 @@ public class Client {
   private int vcores;
   private int gpus;
   private Map<String, String> environment = new HashMap<>(); // environment variables
+  private boolean tensorboard;
   
   private String nodeLabelExpression;
   private String log4jPropFile; // if available, add to local resources and set into classpath
@@ -250,7 +252,6 @@ public class Client {
     
     if (cliParser.hasOption(DEBUG)) {
       debugFlag = true;
-      
     }
     
     maxAppAttempts = Integer.parseInt(cliParser.getOptionValue(MAX_APP_ATTEMPTS, "1"));
@@ -322,6 +323,10 @@ public class Client {
           + ", gpus=" + gpus
           + ", numWorkers=" + numWorkers
           + ", numPses=" + numPses);
+    }
+  
+    if (cliParser.hasOption(TENSORBOARD)) {
+      tensorboard = true;
     }
     
     nodeLabelExpression = cliParser.getOptionValue(NODE_LABEL_EXPRESSION, null);
@@ -583,6 +588,9 @@ public class Client {
     
     for (Map.Entry<String, String> entry : environment.entrySet()) {
       vargs.add(newArg(ENV, entry.getKey() + "=" + entry.getValue()));
+    }
+    if (tensorboard) {
+      vargs.add("--" + TENSORBOARD);
     }
     if (debugFlag) {
       vargs.add("--" + DEBUG);

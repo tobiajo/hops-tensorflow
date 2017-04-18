@@ -90,6 +90,7 @@ import static io.hops.tensorflow.ApplicationMasterArguments.createOptions;
 import static io.hops.tensorflow.CommonArguments.ALLOCATION_TIMEOUT;
 import static io.hops.tensorflow.CommonArguments.ARGS;
 import static io.hops.tensorflow.CommonArguments.GPUS;
+import static io.hops.tensorflow.CommonArguments.TENSORBOARD;
 import static io.hops.tensorflow.Constants.LOG4J_PATH;
 
 public class ApplicationMaster {
@@ -135,6 +136,7 @@ public class ApplicationMaster {
   private int containerVirtualCores;
   private int containerGPUs;
   private int requestPriority;
+  private boolean tensorboard;
   
   // Timeout threshold for container allocation
   private final long appMasterStartTime = System.currentTimeMillis();
@@ -296,6 +298,10 @@ public class ApplicationMaster {
         environment.put(key, val);
       }
     }
+  
+    if (cliParser.hasOption(TENSORBOARD)) {
+      tensorboard = true;
+    }
     
     if (envs.containsKey(Constants.YARNTFTIMELINEDOMAIN)) {
       domainId = envs.get(Constants.YARNTFTIMELINEDOMAIN);
@@ -317,7 +323,7 @@ public class ApplicationMaster {
     
     environment.put("WORKERS", Integer.toString(numWorkers));
     environment.put("PSES", Integer.toString(numPses));
-    environment.put("HOME_DIRECTORY", FileSystem.get(conf).getHomeDirectory().toString());
+    environment.put("HOME_DIR", FileSystem.get(conf).getHomeDirectory().toString());
     environment.put("PYTHONUNBUFFERED", "true");
     
     DistributedCacheList distCacheList = null;
@@ -692,6 +698,9 @@ public class ApplicationMaster {
       Map<String, String> envCopy = new HashMap<>(environment);
       envCopy.put("JOB_NAME", jobName);
       envCopy.put("TASK_INDEX", Integer.toString(taskIndex));
+      if (tensorboard && jobName.equals("worker")) {
+        envCopy.put("TB_DIR", "tensorboard_" + taskIndex);
+      }
       
       // Set the executable command for the allocated container
       Vector<CharSequence> vargs = new Vector<>(15);
