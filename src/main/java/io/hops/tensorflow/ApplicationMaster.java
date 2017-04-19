@@ -428,8 +428,8 @@ public class ApplicationMaster {
     int maxVCores = response.getMaximumResourceCapability().getVirtualCores();
     LOG.info("Max vcores capabililty of resources in this cluster " + maxVCores);
     
-    int maxGPUS = response.getMaximumResourceCapability().getGPUs();
-    LOG.info("Max gpus capabililty of resources in this cluster " + maxGPUS);
+    // int maxGPUS = response.getMaximumResourceCapability().getGPUs();
+    // LOG.info("Max gpus capabililty of resources in this cluster " + maxGPUS);
     
     // A resource ask cannot exceed the max.
     if (containerMemory > maxMem) {
@@ -444,11 +444,11 @@ public class ApplicationMaster {
       containerVirtualCores = maxVCores;
     }
     
-    if (containerGPUs > maxGPUS) {
-      LOG.info("Container gpus specified above max threshold of cluster."
-          + " Using max value." + ", specified=" + containerGPUs + ", max=" + maxGPUS);
-      containerGPUs = maxGPUS;
-    }
+    // if (containerGPUs > maxGPUS) {
+    //   LOG.info("Container gpus specified above max threshold of cluster."
+    //       + " Using max value." + ", specified=" + containerGPUs + ", max=" + maxGPUS);
+    //   containerGPUs = maxGPUS;
+    // }
     
     List<Container> previousAMRunningContainers = response.getContainersFromPreviousAttempts();
     LOG.info(appAttemptID + " received " + previousAMRunningContainers.size()
@@ -497,7 +497,7 @@ public class ApplicationMaster {
     // Set up resource type requirements
     Resource capability = Resource.newInstance(containerMemory, containerVirtualCores);
     if (worker) {
-      capability.setGPUs(containerGPUs);
+      // capability.setGPUs(containerGPUs);
     }
     
     ContainerRequest request = new ContainerRequest(capability, null, null, pri);

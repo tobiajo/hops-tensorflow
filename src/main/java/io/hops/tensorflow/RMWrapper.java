@@ -130,13 +130,13 @@ public class RMWrapper {
         YarntfTask task;
         
         // decide task
-        if (applicationMaster.getContainerGPUs() > 0) {
+        if (false) {//applicationMaster.getContainerGPUs() > 0) {
           // if GPU: by resource
-          if (allocatedContainer.getResource().getGPUs() > 0) {
-            task = YarntfTask.YARNTF_WORKER;
-          } else {
-            task = YarntfTask.YARNTF_PS;
-          }
+          // if (allocatedContainer.getResource().getGPUs() > 0) {
+          //  task = YarntfTask.YARNTF_WORKER;
+          // } else {
+          //  task = YarntfTask.YARNTF_PS;
+          // }
         } else {
           // if not: by counter
           if (workerId < applicationMaster.getNumWorkers() - 1) {

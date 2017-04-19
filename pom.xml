@@ -9,7 +9,7 @@
   <version>0.0.1</version>
 
   <properties>
-    <hadoop.distribution>io.hops</hadoop.distribution>
+    <hadoop.distribution>org.apache.hadoop</hadoop.distribution>
     <hadoop.version>2.7.3</hadoop.version>
     <guava.version>20.0</guava.version>
     <protobuf.version>3.1.0</protobuf.version>
