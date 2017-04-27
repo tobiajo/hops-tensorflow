@@ -373,7 +373,7 @@ def main(_):
   FLAGS.job_name = os.environ["JOB_NAME"]
   FLAGS.task = int(os.environ["TASK_INDEX"])
   FLAGS.worker_replicas = int(os.environ["WORKERS"])
-  assert(FLAGS.num_ps_tasks == int(os.environ["PSES"]))
+  FLAGS.num_ps_tasks = int(os.environ["PSES"])
   FLAGS.master = server.target
 
   if FLAGS.job_name == "ps":

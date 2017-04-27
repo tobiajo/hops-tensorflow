@@ -28,8 +28,7 @@ ${HOPSTF_HOME}/bin/yarntf-submit \
         --dataset_split_name train \
         --model_name inception_v3 \
         --max_number_of_steps 1000 \
-        --clone_on_cpu \
-        --num_ps_tasks 0
+        --clone_on_cpu
 ```
 4. Run evaluation:
 ```
