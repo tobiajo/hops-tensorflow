@@ -18,7 +18,7 @@ ${HOPSTF_HOME}/bin/yarntf-submit \
         --pses          1 \
         --memory        8192 \
         --vcores        1 \
-        --gpus          0 \
+        --gpus          1 \
         --files ${HOPSTF_HOME}/yarntf/examples/slim/slim.zip \
         --main ${HOPSTF_HOME}/yarntf/examples/slim/train_image_classifier.py \
         --args \
@@ -27,8 +27,7 @@ ${HOPSTF_HOME}/bin/yarntf-submit \
         --dataset_name cifar10 \
         --dataset_split_name train \
         --model_name inception_v3 \
-        --max_number_of_steps 1000 \
-        --clone_on_cpu
+        --max_number_of_steps 1000
 ```
 4. Run evaluation:
 ```
@@ -38,7 +37,7 @@ ${HOPSTF_HOME}/bin/yarntf-submit \
         --pses          0 \
         --memory        8192 \
         --vcores        1 \
-        --gpus          0 \
+        --gpus          1 \
         --files ${HOPSTF_HOME}/yarntf/examples/slim/slim.zip \
         --main ${HOPSTF_HOME}/yarntf/examples/slim/eval_image_classifier.py \
         --args \
@@ -51,4 +50,4 @@ ${HOPSTF_HOME}/bin/yarntf-submit \
 ```
 
 ## Note
-TensorFlow-Slim seems to suffer some issues since TF v1.
+This TensorFlow-Slim example suffers some issues since the TF v1 release.
