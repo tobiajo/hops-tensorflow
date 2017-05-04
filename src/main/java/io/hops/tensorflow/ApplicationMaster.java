@@ -318,13 +318,19 @@ public class ApplicationMaster {
     numWorkers = Integer.parseInt(cliParser.getOptionValue(WORKERS, "1"));
     numPses = Integer.parseInt(cliParser.getOptionValue(PSES, "1"));
     numTotalContainers = numWorkers + numPses;
-    if (!(numWorkers > 0 && numPses > 0  || numWorkers == 1 && numPses == 0)) {
+    if (!(numWorkers > 0 && numPses > 0 || numWorkers == 1 && numPses == 0)) {
       throw new IllegalArgumentException("Invalid no. of workers or parameter server");
     }
     // requestPriority = Integer.parseInt(cliParser.getOptionValue(PRIORITY, "0"));
     
     allocationTimeout = Long.parseLong(cliParser.getOptionValue(ALLOCATION_TIMEOUT, "15")) * 1000;
     
+    environment.put("MEMORY", Integer.toString(containerMemory));
+    environment.put("VCORES", Integer.toString(containerVirtualCores));
+    environment.put("GPUS", Integer.toString(containerGPUs));
+    if (containerRDMA) {
+      environment.put("RDMA", "true");
+    }
     environment.put("WORKERS", Integer.toString(numWorkers));
     environment.put("PSES", Integer.toString(numPses));
     environment.put("HOME_DIR", FileSystem.get(conf).getHomeDirectory().toString());
@@ -506,10 +512,6 @@ public class ApplicationMaster {
     if (worker) {
       pri.setPriority(0); // worker: 0, ps: 1
       capability.setGPUs(containerGPUs);
-    }
-    
-    if (containerRDMA) {
-      LOG.warn("Trying to enable RDMA. Not yet implemented");
     }
     
     ContainerRequest request = new ContainerRequest(capability, null, null, pri);

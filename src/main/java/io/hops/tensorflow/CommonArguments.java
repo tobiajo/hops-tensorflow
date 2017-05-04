@@ -51,7 +51,7 @@ public abstract class CommonArguments {
     opts.addOption(MEMORY, true, "Amount of memory in MB to be requested to run the TF application");
     opts.addOption(VCORES, true, "Amount of virtual cores to be requested to run the TF application");
     opts.addOption(GPUS, true, "Amount of GPUs for each TF application container");
-    opts.addOption(RDMA, false, "Enable RDMA (dummy flag: not yet implemented!)"); // TODO: after impl, update desc
+    opts.addOption(RDMA, false, "Use RDMA protocol for TF application");
     // opts.addOption(PRIORITY, true, "Priority for the Python application containers");
     opts.addOption(ALLOCATION_TIMEOUT, true, "Container allocation timeout in seconds");
     
