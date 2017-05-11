@@ -79,7 +79,6 @@ import static io.hops.tensorflow.ApplicationMasterArguments.ENV;
 import static io.hops.tensorflow.ApplicationMasterArguments.HELP;
 import static io.hops.tensorflow.ApplicationMasterArguments.MAIN_RELATIVE;
 import static io.hops.tensorflow.ApplicationMasterArguments.MEMORY;
-// import static io.hops.tensorflow.ApplicationMasterArguments.PRIORITY;
 import static io.hops.tensorflow.ApplicationMasterArguments.PSES;
 import static io.hops.tensorflow.ApplicationMasterArguments.VCORES;
 import static io.hops.tensorflow.ApplicationMasterArguments.WORKERS;
@@ -87,9 +86,11 @@ import static io.hops.tensorflow.ApplicationMasterArguments.createOptions;
 import static io.hops.tensorflow.CommonArguments.ALLOCATION_TIMEOUT;
 import static io.hops.tensorflow.CommonArguments.ARGS;
 import static io.hops.tensorflow.CommonArguments.GPUS;
-import static io.hops.tensorflow.CommonArguments.RDMA;
+import static io.hops.tensorflow.CommonArguments.PROTOCOL;
 import static io.hops.tensorflow.CommonArguments.TENSORBOARD;
 import static io.hops.tensorflow.Constants.LOG4J_PATH;
+
+// import static io.hops.tensorflow.ApplicationMasterArguments.PRIORITY;
 
 public class ApplicationMaster {
   
@@ -133,7 +134,7 @@ public class ApplicationMaster {
   private int containerMemory;
   private int containerVirtualCores;
   private int containerGPUs;
-  private boolean containerRDMA;
+  private String tfProtocol;
   // private int requestPriority;
   private boolean tensorboard;
   
@@ -311,9 +312,7 @@ public class ApplicationMaster {
     containerMemory = Integer.parseInt(cliParser.getOptionValue(MEMORY, "1024"));
     containerVirtualCores = Integer.parseInt(cliParser.getOptionValue(VCORES, "1"));
     containerGPUs = Integer.parseInt(cliParser.getOptionValue(GPUS, "0"));
-    if (cliParser.hasOption(RDMA)) {
-      containerRDMA = true;
-    }
+    tfProtocol = cliParser.getOptionValue(PROTOCOL, null);
     
     numWorkers = Integer.parseInt(cliParser.getOptionValue(WORKERS, "1"));
     numPses = Integer.parseInt(cliParser.getOptionValue(PSES, "1"));
@@ -328,8 +327,8 @@ public class ApplicationMaster {
     environment.put("MEMORY", Integer.toString(containerMemory));
     environment.put("VCORES", Integer.toString(containerVirtualCores));
     environment.put("GPUS", Integer.toString(containerGPUs));
-    if (containerRDMA) {
-      environment.put("RDMA", "true");
+    if (tfProtocol != null) {
+      environment.put("PROTOCOL", tfProtocol);
     }
     environment.put("WORKERS", Integer.toString(numWorkers));
     environment.put("PSES", Integer.toString(numPses));

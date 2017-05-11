@@ -34,6 +34,7 @@ import static io.hops.tensorflow.ClientArguments.MEMORY;
 import static io.hops.tensorflow.ClientArguments.PSES;
 import static io.hops.tensorflow.ClientArguments.VCORES;
 import static io.hops.tensorflow.ClientArguments.WORKERS;
+import static io.hops.tensorflow.CommonArguments.PROTOCOL;
 import static io.hops.tensorflow.CommonArguments.TENSORBOARD;
 
 public class TestYarnTF extends TestCluster {
@@ -52,6 +53,7 @@ public class TestYarnTF extends TestCluster {
         "--" + VCORES, "1",
         "--" + MAIN, mainPath,
         "--" + ARGS, "--images mnist/tfr/train --format tfr --mode train --model mnist_model",
+        "--" + PROTOCOL, "grpc+verbs"
     };
     
     LOG.info("Initializing yarntf Client");
@@ -66,6 +68,7 @@ public class TestYarnTF extends TestCluster {
     
     Assert.assertEquals(5, TestUtils.verifyContainerLog(yarnCluster, 5, null, true, "Number of arguments: 9"));
     Assert.assertEquals(4, TestUtils.verifyContainerLog(yarnCluster, 5, null, true, "TB_DIR=tensorboard_"));
+    Assert.assertEquals(5, TestUtils.verifyContainerLog(yarnCluster, 5, null, true, "PROTOCOL=grpc+verbs"));
     Assert.assertTrue(TestUtils.dumpAllRemoteContainersLogs(yarnCluster, appId));
     // Thread.sleep(5000);
     // TestUtils.dumpAllAggregatedContainersLogs(yarnCluster, appId);
@@ -97,5 +100,6 @@ public class TestYarnTF extends TestCluster {
     LOG.info("Client run completed. Result=" + result);
     
     Assert.assertEquals(2, TestUtils.verifyContainerLog(yarnCluster, 2, null, true, "hello, from baz"));
+    Assert.assertEquals(0, TestUtils.verifyContainerLog(yarnCluster, 2, null, true, "PROTOCOL="));
   }
 }
