@@ -9,7 +9,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
   name='tfyarn',
-  version='0.0.3.dev1',
+  version='0.0.3.dev2',
   description='Easy distributed TensorFlow on Hops Hadoop',
   long_description=long_description,
   url='https://github.com/hopshadoop/hops-tensorflow',
