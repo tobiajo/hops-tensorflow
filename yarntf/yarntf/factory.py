@@ -87,4 +87,8 @@ def createClusterServer():
   job_name = os.environ['JOB_NAME']
   task_index = int(os.environ['TASK_INDEX'])
   cluster = createClusterSpec(am_address, application_id, job_name, task_index)
-  return cluster, tf.train.Server(cluster, job_name=job_name, task_index=task_index)
+  if 'PROTOCOL' in os.environ:
+    server = tf.train.Server(cluster, job_name=job_name, task_index=task_index, protocol=os.environ['PROTOCOL'])
+  else:
+    server = tf.train.Server(cluster, job_name=job_name, task_index=task_index)
+  return cluster, server
