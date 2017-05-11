@@ -9,8 +9,8 @@ print('Argument list: ' + str(sys.argv))
 
 cluster, server = yarntf.createClusterServer()
 
-if 'TB_DIR' in os.environ:
-  print('TB_DIR=' + os.environ['TB_DIR'])
+if 'YARNTF_TENSORBOARD' in os.environ:
+  print('YARNTF_TENSORBOARD=' + os.environ['YARNTF_TENSORBOARD'])
 
-if 'PROTOCOL' in os.environ:
-  print('PROTOCOL=' + os.environ['PROTOCOL'])
+if 'YARNTF_PROTOCOL' in os.environ:
+  print('YARNTF_PROTOCOL=' + os.environ['YARNTF_PROTOCOL'])

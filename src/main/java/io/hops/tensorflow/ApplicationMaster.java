@@ -324,15 +324,15 @@ public class ApplicationMaster {
     
     allocationTimeout = Long.parseLong(cliParser.getOptionValue(ALLOCATION_TIMEOUT, "15")) * 1000;
     
-    environment.put("MEMORY", Integer.toString(containerMemory));
-    environment.put("VCORES", Integer.toString(containerVirtualCores));
-    environment.put("GPUS", Integer.toString(containerGPUs));
+    environment.put("YARNTF_MEMORY", Integer.toString(containerMemory));
+    environment.put("YARNTF_VCORES", Integer.toString(containerVirtualCores));
+    environment.put("YARNTF_GPUS", Integer.toString(containerGPUs));
     if (tfProtocol != null) {
-      environment.put("PROTOCOL", tfProtocol);
+      environment.put("YARNTF_PROTOCOL", tfProtocol);
     }
-    environment.put("WORKERS", Integer.toString(numWorkers));
-    environment.put("PSES", Integer.toString(numPses));
-    environment.put("HOME_DIR", FileSystem.get(conf).getHomeDirectory().toString());
+    environment.put("YARNTF_WORKERS", Integer.toString(numWorkers));
+    environment.put("YARNTF_PSES", Integer.toString(numPses));
+    environment.put("YARNTF_HOME", FileSystem.get(conf).getHomeDirectory().toString());
     environment.put("PYTHONUNBUFFERED", "true");
     
     DistributedCacheList distCacheList = null;
@@ -387,8 +387,8 @@ public class ApplicationMaster {
         port++;
       }
     }
-    environment.put("AM_ADDRESS", InetAddress.getLocalHost().getHostName() + ":" + port);
-    environment.put("APPLICATION_ID", appAttemptID.getApplicationId().toString());
+    environment.put("YARNTF_AM_ADDRESS", InetAddress.getLocalHost().getHostName() + ":" + port);
+    environment.put("YARNTF_APPLICATION_ID", appAttemptID.getApplicationId().toString());
     
     // Note: Credentials, Token, UserGroupInformation, DataOutputBuffer class
     // are marked as LimitedPrivate
@@ -717,13 +717,10 @@ public class ApplicationMaster {
       LOG.info("Setting up container launch container for containerid=" + container.getId());
       
       Map<String, String> envCopy = new HashMap<>(environment);
-      envCopy.put("JOB_NAME", jobName);
-      envCopy.put("TASK_INDEX", Integer.toString(taskIndex));
-      if (jobName.equals("worker")) {
-        envCopy.put("TB_DIR", "tensorboard_" + taskIndex);
-        if (tensorboard && taskIndex == 0) {
-          envCopy.put("TENSORBOARD", "true");
-        }
+      envCopy.put("YARNTF_JOB_NAME", jobName);
+      envCopy.put("YARNTF_TASK_INDEX", Integer.toString(taskIndex));
+      if (tensorboard && jobName.equals("worker")) {
+        envCopy.put("YARNTF_TENSORBOARD", "tensorboard_" + taskIndex);
       }
       
       // Set the executable command for the allocated container

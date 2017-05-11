@@ -67,8 +67,9 @@ public class TestYarnTF extends TestCluster {
     LOG.info("Client run completed. Result=" + result);
     
     Assert.assertEquals(5, TestUtils.verifyContainerLog(yarnCluster, 5, null, true, "Number of arguments: 9"));
-    Assert.assertEquals(4, TestUtils.verifyContainerLog(yarnCluster, 5, null, true, "TB_DIR=tensorboard_"));
-    Assert.assertEquals(5, TestUtils.verifyContainerLog(yarnCluster, 5, null, true, "PROTOCOL=grpc+verbs"));
+    Assert.assertEquals(1, TestUtils.verifyContainerLog(yarnCluster, 5, null, true,
+        "YARNTF_TENSORBOARD=tensorboard_"));
+    Assert.assertEquals(5, TestUtils.verifyContainerLog(yarnCluster, 5, null, true, "YARNTF_PROTOCOL=grpc+verbs"));
     Assert.assertTrue(TestUtils.dumpAllRemoteContainersLogs(yarnCluster, appId));
     // Thread.sleep(5000);
     // TestUtils.dumpAllAggregatedContainersLogs(yarnCluster, appId);
@@ -100,6 +101,6 @@ public class TestYarnTF extends TestCluster {
     LOG.info("Client run completed. Result=" + result);
     
     Assert.assertEquals(2, TestUtils.verifyContainerLog(yarnCluster, 2, null, true, "hello, from baz"));
-    Assert.assertEquals(0, TestUtils.verifyContainerLog(yarnCluster, 2, null, true, "PROTOCOL="));
+    Assert.assertEquals(0, TestUtils.verifyContainerLog(yarnCluster, 2, null, true, "YARNTF_PROTOCOL="));
   }
 }
