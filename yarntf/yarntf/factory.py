@@ -26,7 +26,7 @@ def createClusterSpec(am_address, application_id, job_name, task_index):
   client = ClusterSpecGeneratorClient(am_address)
 
   tb_port = -1
-  if 'YARNTF_TENSORBOARD' in os.environ and task_index == 0:
+  if 'YARNTF_TENSORBOARD' in os.environ and job_name == 'worker' and task_index == 0:
     tb_s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     tb_s.bind(('', 0))
     tb_port = tb_s.getsockname()[1]

@@ -68,7 +68,7 @@ public class TestYarnTF extends TestCluster {
   
     Assert.assertTrue(TestUtils.dumpAllRemoteContainersLogs(yarnCluster, appId));
     Assert.assertEquals(5, TestUtils.verifyContainerLog(yarnCluster, 5, null, true, "Number of arguments: 9"));
-    Assert.assertEquals(4, TestUtils.verifyContainerLog(yarnCluster, 5, null, true, "YARNTF_TENSORBOARD=tensorboard_"));
+    Assert.assertEquals(4, TestUtils.verifyContainerLog(yarnCluster, 5, null, true, "YARNTF_TB_DIR=tensorboard_"));
     // Thread.sleep(5000);
     // TestUtils.dumpAllAggregatedContainersLogs(yarnCluster, appId);
   }
