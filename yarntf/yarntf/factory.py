@@ -32,7 +32,7 @@ def createClusterSpec(am_address, application_id, job_name, task_index):
     tb_port = tb_s.getsockname()[1]
     tb_s.close()
     subprocess.Popen(
-      ['tensorboard', '--logdir=' + os.environ['YARNTF_TENSORBOARD'], '--port=' + str(tb_port), '--debug'])
+      ['tensorboard', '--logdir=' + os.environ['YARNTF_TB_DIR'], '--port=' + str(tb_port), '--debug'])
 
   host = socket.gethostname()
   s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

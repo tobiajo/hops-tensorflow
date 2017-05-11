@@ -556,7 +556,7 @@ def train():
 
     # Merge all summaries together.
     summary_op = tf.summary.merge(list(summaries), name='summary_op')
-    summary_writer = tf.summary.FileWriter(os.environ["YARNTF_TENSORBOARD"], graph=tf.get_default_graph())
+    summary_writer = tf.summary.FileWriter(os.environ["YARNTF_TB_DIR"], graph=tf.get_default_graph())
 
 
     ###########################

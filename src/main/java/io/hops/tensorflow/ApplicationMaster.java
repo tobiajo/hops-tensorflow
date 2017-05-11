@@ -136,7 +136,6 @@ public class ApplicationMaster {
   private int containerGPUs;
   private String tfProtocol;
   // private int requestPriority;
-  private boolean tensorboard;
   
   // Timeout threshold for container allocation
   private final long appMasterStartTime = System.currentTimeMillis();
@@ -302,7 +301,7 @@ public class ApplicationMaster {
     }
     
     if (cliParser.hasOption(TENSORBOARD)) {
-      tensorboard = true;
+      environment.put("YARNTF_TENSORBOARD", "true");
     }
     
     if (envs.containsKey(Constants.YARNTFTIMELINEDOMAIN)) {
@@ -332,7 +331,7 @@ public class ApplicationMaster {
     }
     environment.put("YARNTF_WORKERS", Integer.toString(numWorkers));
     environment.put("YARNTF_PSES", Integer.toString(numPses));
-    environment.put("YARNTF_HOME", FileSystem.get(conf).getHomeDirectory().toString());
+    environment.put("YARNTF_HOME_DIR", FileSystem.get(conf).getHomeDirectory().toString());
     environment.put("PYTHONUNBUFFERED", "true");
     
     DistributedCacheList distCacheList = null;
@@ -719,8 +718,8 @@ public class ApplicationMaster {
       Map<String, String> envCopy = new HashMap<>(environment);
       envCopy.put("YARNTF_JOB_NAME", jobName);
       envCopy.put("YARNTF_TASK_INDEX", Integer.toString(taskIndex));
-      if (tensorboard && jobName.equals("worker")) {
-        envCopy.put("YARNTF_TENSORBOARD", "tensorboard_" + taskIndex);
+      if (jobName.equals("worker")) {
+        envCopy.put("YARNTF_TB_DIR", "tensorboard_" + taskIndex);
       }
       
       // Set the executable command for the allocated container
