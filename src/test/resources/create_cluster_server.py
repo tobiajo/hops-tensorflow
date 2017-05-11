@@ -11,6 +11,3 @@ cluster, server = yarntf.createClusterServer()
 
 if 'YARNTF_TENSORBOARD' in os.environ:
   print('YARNTF_TENSORBOARD=' + os.environ['YARNTF_TENSORBOARD'])
-
-if 'YARNTF_PROTOCOL' in os.environ:
-  print('YARNTF_PROTOCOL=' + os.environ['YARNTF_PROTOCOL'])

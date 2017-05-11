@@ -53,7 +53,7 @@ public class TestYarnTF extends TestCluster {
         "--" + VCORES, "1",
         "--" + MAIN, mainPath,
         "--" + ARGS, "--images mnist/tfr/train --format tfr --mode train --model mnist_model",
-        "--" + PROTOCOL, "grpc+verbs"
+        "--" + TENSORBOARD
     };
     
     LOG.info("Initializing yarntf Client");
@@ -65,12 +65,10 @@ public class TestYarnTF extends TestCluster {
     
     boolean result = client.monitorApplication(appId);
     LOG.info("Client run completed. Result=" + result);
-    
-    Assert.assertEquals(5, TestUtils.verifyContainerLog(yarnCluster, 5, null, true, "Number of arguments: 9"));
-    Assert.assertEquals(1, TestUtils.verifyContainerLog(yarnCluster, 5, null, true,
-        "YARNTF_TENSORBOARD=tensorboard_"));
-    Assert.assertEquals(5, TestUtils.verifyContainerLog(yarnCluster, 5, null, true, "YARNTF_PROTOCOL=grpc+verbs"));
+  
     Assert.assertTrue(TestUtils.dumpAllRemoteContainersLogs(yarnCluster, appId));
+    Assert.assertEquals(5, TestUtils.verifyContainerLog(yarnCluster, 5, null, true, "Number of arguments: 9"));
+    Assert.assertEquals(4, TestUtils.verifyContainerLog(yarnCluster, 5, null, true, "YARNTF_TENSORBOARD=tensorboard_"));
     // Thread.sleep(5000);
     // TestUtils.dumpAllAggregatedContainersLogs(yarnCluster, appId);
   }
@@ -87,7 +85,8 @@ public class TestYarnTF extends TestCluster {
         "--" + MEMORY, "256",
         "--" + VCORES, "1",
         "--" + FILES, extraDepPy + "," + extraDepZip,
-        "--" + MAIN, mainPath
+        "--" + MAIN, mainPath,
+        "--" + PROTOCOL, "grpc+verbs"
     };
     
     LOG.info("Initializing yarntf Client");
@@ -101,6 +100,6 @@ public class TestYarnTF extends TestCluster {
     LOG.info("Client run completed. Result=" + result);
     
     Assert.assertEquals(2, TestUtils.verifyContainerLog(yarnCluster, 2, null, true, "hello, from baz"));
-    Assert.assertEquals(0, TestUtils.verifyContainerLog(yarnCluster, 2, null, true, "YARNTF_PROTOCOL="));
+    Assert.assertEquals(2, TestUtils.verifyContainerLog(yarnCluster, 2, null, true, "YARNTF_PROTOCOL=grpc+verbs"));
   }
 }

@@ -8,7 +8,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
   long_description = f.read()
 
 setup(
-  name='yarntf',
+  name='tfyarn',
   version='0.0.3.dev1',
   description='Easy distributed TensorFlow on Hops Hadoop',
   long_description=long_description,
