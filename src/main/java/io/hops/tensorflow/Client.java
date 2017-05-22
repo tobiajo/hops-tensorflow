@@ -985,8 +985,13 @@ public class Client {
   }
   
   private String addResource(FileSystem fs, ApplicationId appId, String srcPath, String dstDir, String dstName,
-      DistributedCacheList distCache, Map<String, LocalResource> localResources, StringBuilder pythonPath) throws
-      IOException {
+      DistributedCacheList distCache, Map<String, LocalResource> localResources, StringBuilder pythonPath)
+      throws IOException {
+    if (srcPath.startsWith("hdfs://")) {
+      // will not be used: appId, dstDir and dstName
+      addResourceFromHDFS(fs, srcPath, distCache, localResources, pythonPath);
+    }
+    
     Path src = new Path(srcPath);
     
     if (dstDir == null) {
@@ -1031,6 +1036,37 @@ public class Client {
     }
     
     return dstName;
+  }
+  
+  private String addResourceFromHDFS(FileSystem fs, String srcPath,
+      DistributedCacheList distCache, Map<String, LocalResource> localResources, StringBuilder pythonPath)
+      throws IOException {
+    Path src = new Path(srcPath);
+    
+    FileStatus srcStatus = fs.getFileStatus(src);
+    
+    if (distCache != null) {
+      LOG.info("Adding to distributed cache: " + srcPath);
+      distCache.add(new DistributedCacheList.Entry(
+          srcPath, src.toUri(), srcStatus.getLen(), srcStatus.getModificationTime()));
+    }
+    
+    if (localResources != null) {
+      LOG.info("Adding to local environment: " + srcPath);
+      LocalResource resource = LocalResource.newInstance(
+          ConverterUtils.getYarnUrlFromURI(src.toUri()),
+          LocalResourceType.FILE,
+          LocalResourceVisibility.APPLICATION,
+          srcStatus.getLen(),
+          srcStatus.getModificationTime());
+      localResources.put(srcPath, resource);
+    }
+    
+    if (pythonPath != null) {
+      pythonPath.append(File.pathSeparator).append(srcPath);
+    }
+    
+    return src.getName();
   }
   
   private Map<String, String> setupLaunchEnv() throws IOException {
